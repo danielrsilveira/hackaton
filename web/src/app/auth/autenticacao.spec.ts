@@ -80,6 +80,7 @@ describe('Autenticacao (Cognito, code + PKCE)', () => {
     expect(url.searchParams.get('state')).toBeTruthy();
     expect(url.searchParams.get('nonce')).toBeTruthy();
     expect(url.searchParams.has('client_secret')).toBe(false);
+    expect(url.searchParams.get('lang')).toBe('pt-BR');
 
     const pkce = JSON.parse(sessionStorage.getItem('sisgares.auth.pkce') ?? '{}');
     expect(pkce.state).toBe(url.searchParams.get('state'));

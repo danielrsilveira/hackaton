@@ -23,6 +23,8 @@ const CHAVE_LOGIN_EM = 'sisgares.auth.loginEm';
 export const MARGEM_RENOVACAO_MS = 60_000;
 /** Um 401 logo após um login recém-concluído indica problema de configuração, não sessão expirada. */
 export const JANELA_ANTI_LACO_MS = 15_000;
+/** Idioma das telas do Managed Login (parâmetro `lang` do /oauth2/authorize). */
+export const IDIOMA_LOGIN = 'pt-BR';
 
 interface Tokens {
   idToken: string;
@@ -151,6 +153,8 @@ export class Autenticacao {
       url.searchParams.set('nonce', pkce.nonce);
       url.searchParams.set('code_challenge', desafio);
       url.searchParams.set('code_challenge_method', 'S256');
+      // Managed Login em português, independente do idioma do navegador (códigos suportados: ver doc do Cognito).
+      url.searchParams.set('lang', IDIOMA_LOGIN);
       this.irPara(url.toString());
     } catch {
       this.redirecionando = false;
