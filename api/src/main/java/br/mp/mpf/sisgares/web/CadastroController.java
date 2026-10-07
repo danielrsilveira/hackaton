@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import br.mp.mpf.sisgares.dominio.AmbienteInput;
+import br.mp.mpf.sisgares.dominio.VinculoSetorInput;
+import br.mp.mpf.sisgares.infra.CadastroRepository.VinculoSetor;
 import br.mp.mpf.sisgares.servico.AmbienteService;
 
 import br.mp.mpf.sisgares.infra.CadastroRepository;
@@ -69,6 +71,20 @@ public class CadastroController {
     public Ambiente alterarAmbiente(@PathVariable long id, @RequestBody AmbienteInput in,
             @RequestHeader(value = UsuarioAtual.HEADER, required = false) Long uid) {
         return ambientes.alterar(id, usuarios.admin(uid).unidadeId(), in);
+    }
+
+    /** RF03: setores notificados nas reservas do ambiente (somente administrador). */
+    @GetMapping("/ambientes/{id}/setores")
+    public List<VinculoSetor> setoresDoAmbiente(@PathVariable long id,
+            @RequestHeader(value = UsuarioAtual.HEADER, required = false) Long uid) {
+        return ambientes.setores(id, usuarios.admin(uid).unidadeId());
+    }
+
+    /** RF03: substitui a lista completa de setores vinculados (somente administrador). */
+    @PutMapping("/ambientes/{id}/setores")
+    public List<VinculoSetor> salvarSetoresDoAmbiente(@PathVariable long id, @RequestBody List<VinculoSetorInput> vinculos,
+            @RequestHeader(value = UsuarioAtual.HEADER, required = false) Long uid) {
+        return ambientes.salvarSetores(id, usuarios.admin(uid).unidadeId(), vinculos);
     }
 
     @GetMapping("/disposicoes")

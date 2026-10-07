@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
@@ -510,6 +511,71 @@ class RegrasNegocioTest {
                     .reservar(100, SALA_A, per("10/11 14:00", "10/11 16:00"))
                     .reservar(200, AUDITORIO, per("10/11 20:00", "10/11 21:00"));
             assertThat(salvar(SALA_A, "Auditório (Parte A)", null, true, d)).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("RF03 – setores vinculados ao ambiente")
+    class Rf03 {
+        static final long COPA = 1L;
+        static final long TI = 2L;
+        static final long INATIVO = 3L;
+        static final long OUTRA_UNIDADE = 4L;
+        final Map<Long, SetorInfo> setores = Map.of(
+                COPA, new SetorInfo(COPA, "Copa", true, UNIDADE),
+                TI, new SetorInfo(TI, "TI", true, null),
+                INATIVO, new SetorInfo(INATIVO, "Setor extinto", false, UNIDADE),
+                OUTRA_UNIDADE, new SetorInfo(OUTRA_UNIDADE, "Copa de outra PR", true, 99L));
+
+        List<Erro> validar(Set<Long> jaVinculados, VinculoSetorInput... vs) {
+            return VinculoSetorValidator.validar(List.of(vs), UNIDADE, setores, jaVinculados);
+        }
+
+        @Test
+        void setoresComESemCodigoSnpSaoAceitos() {
+            assertThat(validar(Set.of(), new VinculoSetorInput(COPA, " "), new VinculoSetorInput(TI, "SEG-0401"))).isEmpty();
+        }
+
+        @Test
+        void listaVaziaRemoveTodosOsVinculos() {
+            assertThat(validar(Set.of())).isEmpty();
+        }
+
+        @Test
+        void setorRepetidoBloqueia() {
+            assertThat(regras(validar(Set.of(), new VinculoSetorInput(COPA, null), new VinculoSetorInput(COPA, "X1"))))
+                    .containsExactly("RF03");
+        }
+
+        @Test
+        void setorDeOutraUnidadeBloqueia() {
+            assertThat(regras(validar(Set.of(), new VinculoSetorInput(OUTRA_UNIDADE, null)))).containsExactly("RF03");
+        }
+
+        @Test
+        void setorInexistenteOuSemIdBloqueia() {
+            assertThat(validar(Set.of(), new VinculoSetorInput(404L, null), new VinculoSetorInput(null, null))).hasSize(2);
+        }
+
+        @Test
+        void novoVinculoComSetorInativoBloqueia() {
+            assertThat(regras(validar(Set.of(), new VinculoSetorInput(INATIVO, null)))).containsExactly("RF03");
+        }
+
+        @Test
+        void vinculoAntigoComSetorInativoPodeSerMantido() {
+            assertThat(validar(Set.of(INATIVO), new VinculoSetorInput(INATIVO, null))).isEmpty();
+        }
+
+        @Test
+        void codigoSnpComEspacoBloqueia() {
+            assertThat(regras(validar(Set.of(), new VinculoSetorInput(TI, "SEG 0401")))).containsExactly("RF03");
+        }
+
+        @Test
+        void codigoSnpVazioViraNulo() {
+            assertThat(VinculoSetorValidator.codigo("  ")).isNull();
+            assertThat(VinculoSetorValidator.codigo(" TI-0101 ")).isEqualTo("TI-0101");
         }
     }
 }

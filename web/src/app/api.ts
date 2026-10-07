@@ -16,6 +16,8 @@ export interface Usuario {
 }
 export interface Ambiente { id: number; descricao: string; idPai: number | null; ativo: boolean; }
 export interface AmbienteInput { descricao: string; idPai: number | null; ativo: boolean; }
+export interface VinculoSetor { setorId: number; setor: string; setorAtivo: boolean; codServicoSnp: string | null; }
+export interface VinculoSetorInput { setorId: number | null; codServicoSnp: string | null; }
 export interface Disposicao { id: number; descricao: string; iconeArquivo: string; }
 export interface Recurso {
   id: number; descricao: string; limitado: boolean; disponibilidade: number;
@@ -101,6 +103,11 @@ export class Api {
   ambientesTodos() { return this.http.get<Ambiente[]>('/api/ambientes?todos=true'); }
   criarAmbiente(a: AmbienteInput) { return this.http.post<Ambiente>('/api/ambientes', a); }
   alterarAmbiente(id: number, a: AmbienteInput) { return this.http.put<Ambiente>(`/api/ambientes/${id}`, a); }
+  /** RF03: setores notificados nas reservas do ambiente; somente administrador. */
+  setoresDoAmbiente(id: number) { return this.http.get<VinculoSetor[]>(`/api/ambientes/${id}/setores`); }
+  salvarSetoresDoAmbiente(id: number, vs: VinculoSetorInput[]) {
+    return this.http.put<VinculoSetor[]>(`/api/ambientes/${id}/setores`, vs);
+  }
   disposicoes() { return this.http.get<Disposicao[]>('/api/disposicoes'); }
   recursos(ambienteId: number | null) {
     const q = ambienteId == null ? '' : `?ambienteId=${ambienteId}`;
