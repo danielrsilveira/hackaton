@@ -578,4 +578,65 @@ class RegrasNegocioTest {
             assertThat(VinculoSetorValidator.codigo(" TI-0101 ")).isEqualTo("TI-0101");
         }
     }
+
+    @Nested
+    @DisplayName("RF01 – cadastro de setores envolvidos")
+    class Rf01 {
+        final List<SetorInfo> daUnidade = List.of(
+                new SetorInfo(1, "Copa", true, UNIDADE),
+                new SetorInfo(2, "Setor extinto", false, UNIDADE));
+
+        List<Erro> salvar(Long id, String descricao, String email, String lista, boolean ativo) {
+            return SetorValidator.validar(id, new SetorInput(descricao, email, lista, ativo), daUnidade);
+        }
+
+        @Test
+        void setorComCaixaPadraoEhAceito() {
+            assertThat(salvar(null, "Seção de TI", "ti@exemplo.gov.br", null, true)).isEmpty();
+        }
+
+        @Test
+        void descricaoECaixaPadraoSaoObrigatorias() {
+            assertThat(salvar(null, " ", "", null, true)).hasSize(2).extracting(Erro::regra).containsOnly("RF01");
+        }
+
+        @Test
+        void descricaoRepetidaEntreAtivosBloqueia() {
+            assertThat(regras(salvar(null, " COPA ", "copa@exemplo.gov.br", null, true))).containsExactly("RF01");
+        }
+
+        @Test
+        void mesmoSetorPodeManterADescricao() {
+            assertThat(salvar(1L, "Copa", "copa@exemplo.gov.br", null, true)).isEmpty();
+        }
+
+        @Test
+        void descricaoDeSetorInativoPodeSerReusada() {
+            assertThat(salvar(null, "Setor extinto", "novo@exemplo.gov.br", null, true)).isEmpty();
+        }
+
+        @Test
+        void caixaPadraoInvalidaBloqueia() {
+            assertThat(regras(salvar(null, "TI", "ti@", null, true))).containsExactly("RF01");
+        }
+
+        @Test
+        void listaComEmailInvalidoBloqueiaEMostraQualEh() {
+            var erros = salvar(null, "TI", "ti@exemplo.gov.br", "a@exemplo.gov.br; sem-arroba", true);
+            assertThat(regras(erros)).containsExactly("RF01");
+            assertThat(erros.getFirst().mensagem()).contains("sem-arroba");
+        }
+
+        @Test
+        void listaEhNormalizadaSemRepeticao() {
+            assertThat(SetorValidator.listaNormalizada(" a@exemplo.gov.br, b@exemplo.gov.br\nA@exemplo.gov.br ;"))
+                    .isEqualTo("a@exemplo.gov.br; b@exemplo.gov.br");
+            assertThat(SetorValidator.listaNormalizada("  ")).isNull();
+        }
+
+        @Test
+        void inativarEhSemprePermitido() {
+            assertThat(salvar(1L, "Copa", "copa@exemplo.gov.br", null, false)).isEmpty();
+        }
+    }
 }

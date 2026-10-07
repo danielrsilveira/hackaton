@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import br.mp.mpf.sisgares.dominio.DadosValidacao;
 import br.mp.mpf.sisgares.dominio.Erro;
+import br.mp.mpf.sisgares.dominio.InterpretacaoReserva;
 import br.mp.mpf.sisgares.dominio.Periodo;
 import br.mp.mpf.sisgares.dominio.ReservaInput;
 import br.mp.mpf.sisgares.dominio.StatusReserva;
@@ -31,6 +32,7 @@ import br.mp.mpf.sisgares.infra.ReservaRepository.Notificacao;
 import br.mp.mpf.sisgares.infra.ReservaRepository.PedidoSnp;
 import br.mp.mpf.sisgares.infra.ReservaRepository.RecursoDaReserva;
 import br.mp.mpf.sisgares.infra.Usuario;
+import br.mp.mpf.sisgares.servico.InterpretacaoService;
 import br.mp.mpf.sisgares.servico.ReservaService;
 import br.mp.mpf.sisgares.servico.ReservaService.ReservaDetalhe;
 
@@ -43,16 +45,35 @@ public class ReservaController {
     private final CadastroRepository cadastros;
     private final DadosValidacao dados;
     private final UsuarioAtual usuarios;
+    private final InterpretacaoService interpretacao;
     private final Clock clock;
 
     public ReservaController(ReservaService service, ReservaRepository repo, CadastroRepository cadastros,
-            DadosValidacao dados, UsuarioAtual usuarios, Clock clock) {
+            DadosValidacao dados, UsuarioAtual usuarios, InterpretacaoService interpretacao, Clock clock) {
         this.service = service;
         this.repo = repo;
         this.cadastros = cadastros;
         this.dados = dados;
         this.usuarios = usuarios;
+        this.interpretacao = interpretacao;
         this.clock = clock;
+    }
+
+    // ---- Preenchimento assistido por IA (F-IA) ----
+
+    public record DescricaoReserva(String texto) {
+    }
+
+    /** Indica ao front se o campo de descrição em linguagem natural deve aparecer. */
+    @GetMapping("/reservas/interpretacao-disponivel")
+    public Map<String, Boolean> interpretacaoDisponivel() {
+        return Map.of("disponivel", interpretacao.disponivel());
+    }
+
+    /** Lê a descrição e devolve os campos sugeridos (não grava nada). */
+    @PostMapping("/reservas/interpretar")
+    public InterpretacaoReserva interpretar(@RequestBody DescricaoReserva corpo) {
+        return interpretacao.interpretar(corpo == null ? null : corpo.texto(), usuarios.de());
     }
 
     // ---- Reserva (F1–F4) ----

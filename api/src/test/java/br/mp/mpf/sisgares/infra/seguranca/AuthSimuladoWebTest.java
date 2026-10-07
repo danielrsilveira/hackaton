@@ -24,6 +24,8 @@ import br.mp.mpf.sisgares.infra.CadastroRepository;
 import br.mp.mpf.sisgares.infra.ReservaRepository;
 import br.mp.mpf.sisgares.infra.Usuario;
 import br.mp.mpf.sisgares.servico.AmbienteService;
+import br.mp.mpf.sisgares.servico.InterpretacaoService;
+import br.mp.mpf.sisgares.servico.SetorService;
 import br.mp.mpf.sisgares.servico.ReservaService;
 import br.mp.mpf.sisgares.web.CadastroController;
 import br.mp.mpf.sisgares.web.ReservaController;
@@ -47,6 +49,8 @@ class AuthSimuladoWebTest {
     @MockitoBean ReservaRepository reservaRepo;
     @MockitoBean ReservaService reservaService;
     @MockitoBean AmbienteService ambienteService;
+    @MockitoBean SetorService setorService;
+    @MockitoBean InterpretacaoService interpretacaoService;
     @MockitoBean DadosValidacao dadosValidacao;
 
     @BeforeEach

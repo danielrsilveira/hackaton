@@ -49,6 +49,16 @@ services:
       AUTH_MODO: ${AUTH_MODO:-simulado}
       AUTH_ISSUER_URI: ${AUTH_ISSUER_URI:-}
       AUTH_CLIENT_ID: ${AUTH_CLIENT_ID:-}
+      # Preenchimento de reserva por IA (Bedrock). Sem credenciais, o botão aparece mas a chamada falha
+      # com aviso amigável; defina BEDROCK_ENABLED=false para esconder o campo. As credenciais vêm do
+      # ambiente do host (ex.: AWS_PROFILE=workshop ou as AWS_* exportadas antes do "docker compose up").
+      BEDROCK_ENABLED: ${BEDROCK_ENABLED:-true}
+      BEDROCK_REGION: ${BEDROCK_REGION:-us-east-1}
+      BEDROCK_MODEL_ID: ${BEDROCK_MODEL_ID:-us.anthropic.claude-haiku-4-5-20251001-v1:0}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-}
     ports:
       - "${API_PORT:-8080}:8080"
     depends_on:

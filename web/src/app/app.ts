@@ -16,6 +16,7 @@ const MENU: ItemMenu[] = [
   { rota: '/atendimento', rotulo: 'Painel do atendente', icone: 'quadro', quando: 'gestor' },
   { rota: '/notificacoes', rotulo: 'Notificações e SNP', icone: 'sino', quando: 'gestor' },
   { rota: '/cadastros/ambientes', rotulo: 'Ambientes', icone: 'local', quando: 'admin' },
+  { rota: '/cadastros/setores', rotulo: 'Setores', icone: 'grupo', quando: 'admin' },
   { rota: '/config', rotulo: 'Configurações', icone: 'ajustes', quando: 'admin' },
 ];
 

@@ -16,7 +16,10 @@ import org.springframework.web.bind.annotation.RestController;
 import br.mp.mpf.sisgares.dominio.AmbienteInput;
 import br.mp.mpf.sisgares.dominio.VinculoSetorInput;
 import br.mp.mpf.sisgares.infra.CadastroRepository.VinculoSetor;
+import br.mp.mpf.sisgares.dominio.SetorInput;
+import br.mp.mpf.sisgares.infra.CadastroRepository.SetorCadastro;
 import br.mp.mpf.sisgares.servico.AmbienteService;
+import br.mp.mpf.sisgares.servico.SetorService;
 
 import br.mp.mpf.sisgares.infra.CadastroRepository;
 import br.mp.mpf.sisgares.infra.CadastroRepository.Ambiente;
@@ -34,11 +37,14 @@ public class CadastroController {
     private final CadastroRepository cadastros;
     private final UsuarioAtual usuarios;
     private final AmbienteService ambientes;
+    private final SetorService setoresService;
 
-    public CadastroController(CadastroRepository cadastros, UsuarioAtual usuarios, AmbienteService ambientes) {
+    public CadastroController(CadastroRepository cadastros, UsuarioAtual usuarios, AmbienteService ambientes,
+            SetorService setoresService) {
         this.cadastros = cadastros;
         this.usuarios = usuarios;
         this.ambientes = ambientes;
+        this.setoresService = setoresService;
     }
 
     /** Ambientes ativos da unidade. Com {@code todos=true} (só administrador), inclui os inativos. */
@@ -89,6 +95,25 @@ public class CadastroController {
     @GetMapping("/setores")
     public List<Setor> setores() {
         return cadastros.setores();
+    }
+
+    /** F9/RF01: setores da unidade, inclusive inativos, com contagem de vínculos (somente administrador). */
+    @GetMapping("/setores/cadastro")
+    public List<SetorCadastro> setoresCadastro() {
+        return setoresService.listar(usuarios.admin().unidadeId());
+    }
+
+    /** F9/RF01: somente administrador. */
+    @PostMapping("/setores")
+    @ResponseStatus(HttpStatus.CREATED)
+    public SetorCadastro criarSetor(@RequestBody SetorInput in) {
+        return setoresService.criar(usuarios.admin().unidadeId(), in);
+    }
+
+    /** F9/RF01: somente administrador. Inativar = enviar {@code ativo: false}. */
+    @PutMapping("/setores/{id}")
+    public SetorCadastro alterarSetor(@PathVariable long id, @RequestBody SetorInput in) {
+        return setoresService.alterar(id, usuarios.admin().unidadeId(), in);
     }
 
     @GetMapping("/config")

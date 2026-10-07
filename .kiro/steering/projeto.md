@@ -48,8 +48,8 @@ Regra de ouro: `docker compose up` (sem flags, sem `.env`) deve sempre subir o s
 - Nunca versionar credenciais nem `.env`. Senhas dos usuários de teste do Cognito nunca entram no repositório.
 
 ## AWS
-- Todo comando AWS CLI, SAM ou CloudFormation usa `--profile workshop` e a região `us-east-1`; código SDK usa o profile `workshop`.
-- O deploy será via CloudFormation. Hoje só existe `infra/cognito.yaml` (autenticação); validar com `aws cloudformation validate-template`, sem implantar. Não criar recursos na conta sem combinar com a equipe.
+- Todo comando AWS CLI, SAM ou CloudFormation usa `--profile hackaton` e a região `us-east-1`; código SDK usa o profile `hackaton`.
+- O deploy é via CloudFormation: stack `sisgares`, template em `infra/template.yml`, passo a passo em `infra/README.md`. A autenticação tem stack própria, `infra/cognito.yaml` (`sisgares-auth`). Validar templates com `aws cloudformation validate-template`. Não criar recursos na conta sem combinar com a equipe.
 
 ## Git
 - Branch por feature (`feat/<area>-<descricao>`), PR para `main`, sem commits diretos na `main`.

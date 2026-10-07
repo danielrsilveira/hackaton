@@ -16,6 +16,10 @@ export interface Usuario {
 }
 export interface Ambiente { id: number; descricao: string; idPai: number | null; ativo: boolean; }
 export interface AmbienteInput { descricao: string; idPai: number | null; ativo: boolean; }
+export interface SetorCadastro {
+  id: number; descricao: string; email: string; emailsLista: string | null; ativo: boolean; ambientes: number; recursos: number;
+}
+export interface SetorInput { descricao: string; email: string; emailsLista: string | null; ativo: boolean; }
 export interface VinculoSetor { setorId: number; setor: string; setorAtivo: boolean; codServicoSnp: string | null; }
 export interface VinculoSetorInput { setorId: number | null; codServicoSnp: string | null; }
 export interface Disposicao { id: number; descricao: string; iconeArquivo: string; }
@@ -35,6 +39,7 @@ export interface ReservaInput {
   qtdParticipantes: number | null; disposicaoId: number | null; periodos: Periodo[]; recursos: ItemRecurso[];
 }
 export interface Erro { regra: string; mensagem: string; }
+export interface InterpretacaoReserva { reserva: ReservaInput; resumo: string; avisos: string[]; }
 export interface RecursoDaReserva {
   recursoId: number; descricao: string; iconeArquivo: string; limitado: boolean; quantidade: number | null; grupo: string;
 }
@@ -113,6 +118,10 @@ export class Api {
     return this.http.get<Recurso[]>(`/api/recursos${q}`);
   }
   setores() { return this.http.get<Setor[]>('/api/setores'); }
+  /** F9/RF01: setores da unidade, inclusive inativos; somente administrador. */
+  setoresCadastro() { return this.http.get<SetorCadastro[]>('/api/setores/cadastro'); }
+  criarSetor(s: SetorInput) { return this.http.post<SetorCadastro>('/api/setores', s); }
+  alterarSetor(id: number, s: SetorInput) { return this.http.put<SetorCadastro>(`/api/setores/${id}`, s); }
   config() { return this.http.get<Config>('/api/config'); }
   salvarConfig(c: Config) { return this.http.put<Config>('/api/config', c); }
 
@@ -121,6 +130,12 @@ export class Api {
     return this.http.post<Erro[]>(`/api/reservas/validar${q}`, r);
   }
   criar(r: ReservaInput) { return this.http.post<{ id: number }>('/api/reservas', r); }
+  interpretacaoDisponivel() {
+    return this.http.get<{ disponivel: boolean }>('/api/reservas/interpretacao-disponivel');
+  }
+  interpretar(texto: string) {
+    return this.http.post<InterpretacaoReserva>('/api/reservas/interpretar', { texto });
+  }
   reserva(id: number) { return this.http.get<ReservaDetalhe>(`/api/reservas/${id}`); }
   alterar(id: number, r: ReservaInput) { return this.http.put<ReservaDetalhe>(`/api/reservas/${id}`, r); }
   cancelar(id: number) { return this.http.post<ReservaDetalhe>(`/api/reservas/${id}/cancelar`, {}); }

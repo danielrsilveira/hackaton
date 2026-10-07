@@ -30,6 +30,11 @@ public class CadastroRepository {
     public record Setor(long id, String descricao, String email, String emailsLista) {
     }
 
+    /** F9/RF01: setor na tela de cadastro, com quantos ambientes e recursos o referenciam. */
+    public record SetorCadastro(long id, String descricao, String email, String emailsLista, boolean ativo,
+            int ambientes, int recursos) {
+    }
+
     /** RF03: setor vinculado a um ambiente. Setor inativo continua listado, mas não é notificado. */
     public record VinculoSetor(long setorId, String setor, boolean setorAtivo, String codServicoSnp) {
     }
@@ -130,6 +135,44 @@ public class CadastroRepository {
             jdbc.sql("insert into envolvido_ambiente (envo_id, ambi_id, cod_servico_snp) values (:e, :a, :c)")
                     .param("e", v.setorId()).param("a", ambienteId).param("c", v.codServicoSnp()).update();
         }
+    }
+
+    private static final String SETOR_CADASTRO = """
+            select e.id, e.descricao, e.email, e.emails_lista, e.ativo,
+                   (select count(*) from envolvido_ambiente ea where ea.envo_id = e.id) as ambientes,
+                   (select count(*) from envolvido_recurso er where er.envo_id = e.id) as recursos
+              from envolvido e where e.unidade_id = :uni""";
+
+    /** F9/RF01: setores da unidade, inclusive inativos, com a quantidade de vínculos. */
+    public List<SetorCadastro> setoresDaUnidade(long unidadeId) {
+        return jdbc.sql(SETOR_CADASTRO + " order by e.descricao").param("uni", unidadeId)
+                .query(SetorCadastro.class).list();
+    }
+
+    public Optional<SetorCadastro> setor(long id, long unidadeId) {
+        return jdbc.sql(SETOR_CADASTRO + " and e.id = :id").param("uni", unidadeId).param("id", id)
+                .query(SetorCadastro.class).optional();
+    }
+
+    public List<SetorInfo> setoresInfo(long unidadeId) {
+        return jdbc.sql("select id, descricao, ativo, unidade_id from envolvido where unidade_id = :uni")
+                .param("uni", unidadeId).query(SetorInfo.class).list();
+    }
+
+    public long inserirSetor(long unidadeId, String descricao, String email, String emailsLista, boolean ativo) {
+        return jdbc.sql("""
+                insert into envolvido (descricao, email, emails_lista, ativo, unidade_id)
+                values (:d, :e, :l, :a, :uni) returning id""")
+                .param("d", descricao).param("e", email).param("l", emailsLista).param("a", ativo).param("uni", unidadeId)
+                .query(Long.class).single();
+    }
+
+    public void atualizarSetor(long id, long unidadeId, String descricao, String email, String emailsLista, boolean ativo) {
+        jdbc.sql("""
+                update envolvido set descricao = :d, email = :e, emails_lista = :l, ativo = :a
+                 where id = :id and unidade_id = :uni""")
+                .param("d", descricao).param("e", email).param("l", emailsLista).param("a", ativo)
+                .param("id", id).param("uni", unidadeId).update();
     }
 
     /** Todos os setores, ativos e inativos, para as regras de vínculo. */
