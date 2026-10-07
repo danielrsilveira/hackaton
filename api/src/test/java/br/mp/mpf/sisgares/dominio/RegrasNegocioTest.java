@@ -371,4 +371,145 @@ class RegrasNegocioTest {
             assertThat(StatusReserva.calcular(true, periodo, dt("10/11 10:00"))).isEqualTo(StatusReserva.CANCELADA);
         }
     }
+
+    @Nested
+    @DisplayName("RF01 – reserva só em ambiente ativo da unidade")
+    class Rf01Reserva {
+        @Test
+        void ambienteInativoBloqueia() {
+            var d = dados().inativar(SALA_2);
+            assertThat(regras(validar(reserva(SALA_2, List.of(), per("10/11 09:00", "10/11 10:00")), d)))
+                    .containsExactly("RF01");
+        }
+
+        @Test
+        void ambienteDeOutraUnidadeBloqueia() {
+            var d = dados().naUnidade(SALA_2, 99L);
+            assertThat(regras(validar(reserva(SALA_2, List.of(), per("10/11 09:00", "10/11 10:00")), d)))
+                    .containsExactly("RF01");
+        }
+
+        @Test
+        void ambienteInexistenteBloqueia() {
+            assertThat(regras(validar(reserva(404L, List.of(), per("10/11 09:00", "10/11 10:00")), dados())))
+                    .containsExactly("RF01");
+        }
+    }
+
+    @Nested
+    @DisplayName("RF01 – cadastro de ambientes")
+    class Rf01Cadastro {
+        final AmbienteValidator av = new AmbienteValidator(Clock.fixed(dt("01/11 10:00").atZone(FUSO).toInstant(), FUSO));
+
+        List<Erro> salvar(Long id, String descricao, Long idPai, boolean ativo, DadosEmMemoria d) {
+            return av.validar(id, new AmbienteInput(descricao, idPai, ativo), UNIDADE, d);
+        }
+
+        @Test
+        void novoAmbienteFilhoDoAuditorioEhAceito() {
+            assertThat(salvar(null, "Auditório (Parte C)", AUDITORIO, true, dados())).isEmpty();
+        }
+
+        @Test
+        void descricaoObrigatoria() {
+            assertThat(regras(salvar(null, "  ", null, true, dados()))).containsExactly("RF01");
+        }
+
+        @Test
+        void descricaoRepetidaEntreAtivosBloqueia() {
+            assertThat(regras(salvar(null, " sala 1 ", null, true, dados()))).containsExactly("RF01");
+        }
+
+        @Test
+        void descricaoDeAmbienteInativoPodeSerReusada() {
+            assertThat(salvar(null, "Sala 1", null, true, dados().inativar(SALA_1))).isEmpty();
+        }
+
+        @Test
+        void paiDeOutraUnidadeBloqueia() {
+            assertThat(regras(salvar(null, "Nova sala", SALA_2, true, dados().naUnidade(SALA_2, 99L))))
+                    .containsExactly("RF01");
+        }
+
+        @Test
+        void paiInativoBloqueia() {
+            assertThat(regras(salvar(null, "Nova sala", SALA_2, true, dados().inativar(SALA_2))))
+                    .containsExactly("RF01");
+        }
+
+        @Test
+        void ambienteNaoPodeSerPaiDeSiMesmo() {
+            assertThat(regras(salvar(SALA_1, "Sala 1", SALA_1, true, dados()))).containsExactly("RF01");
+        }
+
+        @Test
+        void filhoNaoPodeVirarPaiCiclo() {
+            // Auditório → Parte A → Auditório formaria um ciclo
+            assertThat(regras(salvar(AUDITORIO, "Auditório (Completo)", SALA_A, true, dados())))
+                    .containsExactly("RF01");
+        }
+
+        @Test
+        void inativarPaiComFilhosAtivosBloqueia() {
+            assertThat(regras(salvar(AUDITORIO, "Auditório (Completo)", null, false, dados())))
+                    .containsExactly("RF01");
+        }
+
+        @Test
+        void inativarComReservaPrevistaBloqueia() {
+            var d = dados().reservar(100, SALA_1, per("10/11 09:00", "10/11 10:00"));
+            var erros = salvar(SALA_1, "Sala 1", null, false, d);
+            assertThat(regras(erros)).containsExactly("RF01");
+            assertThat(erros.getFirst().mensagem()).contains("#100");
+        }
+
+        @Test
+        void inativarComReservaJaTranscorridaEhAceito() {
+            var d = dados().reservar(100, SALA_1, per("20/10 09:00", "20/10 10:00"));
+            assertThat(salvar(SALA_1, "Sala 1", null, false, d)).isEmpty();
+        }
+
+        @Test
+        void mudarPaiQueCriaConflitoRn6Bloqueia() {
+            // Sala 1 14:00–16:00 e Auditório 15:00–17:00 não conflitam hoje; com Sala 1 filha do Auditório, sim.
+            var d = dados()
+                    .reservar(100, SALA_1, per("10/11 14:00", "10/11 16:00"))
+                    .reservar(200, AUDITORIO, per("10/11 15:00", "10/11 17:00"));
+            var erros = salvar(SALA_1, "Sala 1", AUDITORIO, true, d);
+            assertThat(regras(erros)).containsExactly("RN6");
+            assertThat(erros.getFirst().mensagem()).contains("#100", "#200");
+        }
+
+        @Test
+        void mudarPaiConsideraAMargemDe30Minutos() {
+            var d = dados()
+                    .reservar(100, SALA_1, per("10/11 14:00", "10/11 15:00"))
+                    .reservar(200, AUDITORIO, per("10/11 15:20", "10/11 17:00"));
+            assertThat(regras(salvar(SALA_1, "Sala 1", AUDITORIO, true, d))).containsExactly("RN6");
+        }
+
+        @Test
+        void mudarPaiSemConflitoEhAceito() {
+            var d = dados()
+                    .reservar(100, SALA_1, per("10/11 09:00", "10/11 10:00"))
+                    .reservar(200, AUDITORIO, per("10/11 15:00", "10/11 17:00"));
+            assertThat(salvar(SALA_1, "Sala 1", AUDITORIO, true, d)).isEmpty();
+        }
+
+        @Test
+        void mudarPaiIgnoraReservasJaTranscorridas() {
+            var d = dados()
+                    .reservar(100, SALA_1, per("20/10 14:00", "20/10 16:00"))
+                    .reservar(200, AUDITORIO, per("20/10 15:00", "20/10 17:00"));
+            assertThat(salvar(SALA_1, "Sala 1", AUDITORIO, true, d)).isEmpty();
+        }
+
+        @Test
+        void tirarFilhoDoPaiNaoCriaConflito() {
+            var d = dados()
+                    .reservar(100, SALA_A, per("10/11 14:00", "10/11 16:00"))
+                    .reservar(200, AUDITORIO, per("10/11 20:00", "10/11 21:00"));
+            assertThat(salvar(SALA_A, "Auditório (Parte A)", null, true, d)).isEmpty();
+        }
+    }
 }

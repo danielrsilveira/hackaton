@@ -36,6 +36,11 @@ export class ReservaForm {
   protected readonly disposicoes = signal<Disposicao[]>([]);
   protected readonly recursos = signal<Recurso[]>([]);
   protected readonly detalhe = signal<ReservaDetalhe | null>(null);
+  /** Reserva antiga de um ambiente hoje inativo: mantém o nome visível no seletor. */
+  protected readonly ambienteInativo = computed(() => {
+    const d = this.detalhe();
+    return d?.ambienteId != null && this.ambientes().length > 0 && !this.ambientes().some((a) => a.id === d.ambienteId);
+  });
   protected readonly erros = signal<Erro[]>([]);
   protected readonly errosPrevia = signal<Erro[]>([]);
   protected readonly mensagem = signal('');

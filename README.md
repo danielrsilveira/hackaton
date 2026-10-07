@@ -61,7 +61,7 @@ Não há login real. O usuário é escolhido no seletor do topo da tela:
 | F6 | Pedido automático no SNP quando o vínculo tem código de serviço | ✅ (simulado) |
 | F7 | Painel do solicitante: grade de datas por horários de 30 min, com horários livres clicáveis | ✅ |
 | F8 | Painel do atendente: cards por data com horário, finalidade, solicitante, recursos e SNP | ✅ |
-| F9 | Telas de cadastro das tabelas básicas (setores, ambientes, disposições, grupos, recursos e vínculos) | ⏳ modelo e dados prontos, telas pendentes |
+| F9 | Telas de cadastro das tabelas básicas (setores, ambientes, disposições, grupos, recursos e vínculos) | ⏳ ambientes (com hierarquia) prontos; demais cadastros pendentes |
 | F10 | Configuração de antecedência mínima, faixa de horário (global e por unidade) e endpoint do SNP | ✅ |
 
 | Verificação antecipada de conflitos (RN5) | Painel do atendente (F8) |
@@ -91,6 +91,7 @@ As regras ficam em uma classe pura e testável ([`ReservaValidator`](api/src/mai
 | RN11 | Pedido no SNP só quando o vínculo tem código de serviço |
 | RN12 | Só reservas não transcorridas podem ser alteradas; cancelamento exige antecedência; e-mail destaca o que mudou |
 | RN13 | Status calculado pelo horário: prevista, em andamento, transcorrida ou cancelada |
+| RF01 | Cadastro de ambientes (regras desta solução): descrição única entre os ativos; pai ativo da mesma unidade e sem ciclo; inativar só sem filhos ativos e sem reservas previstas ou em andamento; mudar o pai é bloqueado (RN6) se criar conflito entre reservas já gravadas; reserva só em ambiente ativo da unidade |
 
 Fórmula de conflito (RN5/RN6), aplicada ao ambiente, aos seus ancestrais e aos seus descendentes:
 
@@ -115,6 +116,7 @@ A carga inicial cria três reservas relativas à data da primeira subida (D1 = p
 5. **Diego** (atendente SEART) → Painel do atendente: cards por data, já filtrados pelo setor dele.
 6. Em "Minhas reservas", abra uma reserva antiga: a edição fica bloqueada (transcorrida).
 7. Configurações (Carla): defina a faixa da unidade como 08:00–18:00 e veja a RN3 bloquear um período às 19:00.
+8. Ambientes (Carla): tente inativar o Auditório (Parte A) → bloqueado pela reserva #900001. Crie um ambiente filho do Auditório e veja-o na árvore e no seletor da nova reserva.
 
 Códigos de serviço SNP fictícios (os CSV não têm esse campo): SEART × Projetor Portátil `TI-0101`, SEART × Notebook `TI-0102`, SEART × Videoconferência `TI-0202`, SESOT × Auditório (Completo) `SEG-0401`. A copa (água e café) gera só e-mail.
 
@@ -130,6 +132,7 @@ Códigos de serviço SNP fictícios (os CSV não têm esse campo): SEART × Proj
 
 - **Salvar uma reserva:** a API revalida tudo de forma serializada e grava numa transação. Em seguida monta um e-mail por setor, comparando campo a campo com a versão anterior, e chama o endpoint do SNP configurado. Localmente esse endpoint é um simulador dentro da própria API. Se o SNP falhar, a reserva continua gravada.
 - **Validação antecipada:** o formulário chama `POST /api/reservas/validar` a cada mudança, sem gravar nada.
+- **Cadastro de ambientes:** `GET /api/ambientes?todos=true`, `POST /api/ambientes` e `PUT /api/ambientes/{id}`, só para o administrador. Não há exclusão (reservas e vínculos referenciam o ambiente): inativa-se com `ativo: false`. A gravação usa a mesma serialização das reservas, porque a hierarquia alimenta a RN6.
 - **Modelo de dados:** [`V1__init.sql`](api/src/main/resources/db/migration/V1__init.sql), versionado com Flyway. Os dados vêm dos CSV de [`docs/dados`](docs/dados).
 - **Pronto para a AWS:** a configuração vem só de variáveis de ambiente, e as imagens Docker funcionam em amd64 e arm64. O nginx faz o papel que o CloudFront terá na AWS, encaminhando `/api` para a API. E-mail e SNP estão atrás de interfaces (`EmailSender`, `SnpClient`), trocáveis por SES e pela API real.
 
@@ -192,7 +195,7 @@ As convenções da equipe (migrations, padrão de erros, acessibilidade, Git, AW
 ## Limitações e próximos passos
 
 - **Sem autenticação real:** o usuário vem do header `X-Usuario-Id`. Para produção, integrar com OIDC/Cognito.
-- **F9 sem telas:** os cadastros das tabelas básicas ainda não têm interface; os dados vêm da carga inicial.
+- **F9 parcial:** só ambientes têm cadastro. Setores, disposições, grupos, recursos e os vínculos (inclusive setor × ambiente, que define e-mail e código SNP) ainda vêm só da carga inicial.
 - **Reservas geradas:** não há CSV de reservas. Finalidade e solicitante foram gerados com dados fictícios, e a carga não passa pelo validador, o que pode deixar conflitos históricos.
 - **RN8:** soma as quantidades de qualquer reserva que cruze o período, sem calcular o pico dentro do intervalo.
 - **Concorrência:** a serialização é em memória e serve para uma instância. Com várias, usar `pg_advisory_xact_lock`.

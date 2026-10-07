@@ -29,8 +29,8 @@ import br.mp.mpf.sisgares.infra.Usuario;
 
 /**
  * Inclusão, alteração e cancelamento de reservas. Os métodos de escrita são serializados
- * (synchronized + transação dentro do lock) para que a revalidação ao salvar (RN7) não tenha corrida.
- * Para várias instâncias na AWS, trocar por lock no banco (ex.: pg_advisory_xact_lock).
+ * ({@link TravaEscrita}, compartilhada com o cadastro de ambientes, e transação dentro do lock)
+ * para que a revalidação ao salvar (RN7) não tenha corrida.
  */
 @Service
 public class ReservaService {
@@ -47,10 +47,13 @@ public class ReservaService {
     private final ReservaValidator validator;
     private final NotificacaoService notificacoes;
     private final TransactionTemplate tx;
+    private final TravaEscrita trava;
     private final Clock clock;
 
     public ReservaService(ReservaRepository repo, CadastroRepository cadastros, DadosValidacao dados,
-            ReservaValidator validator, NotificacaoService notificacoes, TransactionTemplate tx, Clock clock) {
+            ReservaValidator validator, NotificacaoService notificacoes, TransactionTemplate tx, TravaEscrita trava,
+            Clock clock) {
+        this.trava = trava;
         this.repo = repo;
         this.cadastros = cadastros;
         this.dados = dados;
@@ -72,19 +75,35 @@ public class ReservaService {
         return validator.validar(in, cadastros.regras(unidade), unidade, dados, reservaId, originais);
     }
 
-    public synchronized long criar(ReservaInput in, Usuario u) {
-        Long id = tx.execute(s -> {
-            List<Erro> erros = validator.validar(in, cadastros.regras(u.unidadeId()), u.unidadeId(), dados, null, List.of());
-            if (!erros.isEmpty()) {
-                throw new RegraException(erros);
-            }
-            return repo.inserir(in, u.id(), u.unidadeId(), agora());
+    public long criar(ReservaInput in, Usuario u) {
+        return trava.executar(() -> {
+            Long id = tx.execute(s -> {
+                List<Erro> erros = validator.validar(in, cadastros.regras(u.unidadeId()), u.unidadeId(), dados, null, List.of());
+                if (!erros.isEmpty()) {
+                    throw new RegraException(erros);
+                }
+                return repo.inserir(in, u.id(), u.unidadeId(), agora());
+            });
+            notificacoes.notificar(id, TipoNotificacao.NOVA, null, List.of());
+            return id;
         });
-        notificacoes.notificar(id, TipoNotificacao.NOVA, null, List.of());
-        return id;
     }
 
-    public synchronized void alterar(long id, ReservaInput in, Usuario u) {
+    public void alterar(long id, ReservaInput in, Usuario u) {
+        trava.executar(() -> {
+            alterarSerializado(id, in, u);
+            return null;
+        });
+    }
+
+    public void cancelar(long id, Usuario u) {
+        trava.executar(() -> {
+            cancelarSerializado(id, u);
+            return null;
+        });
+    }
+
+    private void alterarSerializado(long id, ReservaInput in, Usuario u) {
         var antes = tx.execute(s -> {
             Cabecalho c = carregarParaEscrita(id, u);
             List<Periodo> atuais = repo.periodos(id);
@@ -102,7 +121,7 @@ public class ReservaService {
         notificar(id, TipoNotificacao.ALTERADA, antes);
     }
 
-    public synchronized void cancelar(long id, Usuario u) {
+    private void cancelarSerializado(long id, Usuario u) {
         var antes = tx.execute(s -> {
             Cabecalho c = carregarParaEscrita(id, u);
             List<Erro> erros = validator.validarCancelamento(c.cancelada(), repo.periodos(id), cadastros.regras(c.unidadeId()));

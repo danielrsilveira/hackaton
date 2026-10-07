@@ -12,7 +12,7 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Regras de negócio da reserva (RN1–RN9, RN12). Classe pura: sem Spring e sem banco,
+ * Regras de negócio da reserva (RN1–RN9, RN12 e ambiente disponível, RF01). Classe pura: sem Spring e sem banco,
  * recebe o relógio e uma porta de leitura de dados.
  */
 public class ReservaValidator {
@@ -51,6 +51,16 @@ public class ReservaValidator {
                     "Sem ambiente solicitado (\"Não solicitado / local próprio\"), o complemento do ambiente é obrigatório."));
         }
 
+        // RF01: o ambiente precisa existir, estar ativo e pertencer à unidade
+        boolean ambienteValido = true;
+        if (in.ambienteId() != null) {
+            Optional<AmbienteInfo> amb = dados.ambiente(in.ambienteId());
+            if (amb.isEmpty() || !amb.get().ativo() || amb.get().unidadeId() != unidadeId) {
+                erros.add(new Erro(AmbienteValidator.REGRA, "O ambiente escolhido não está disponível nesta unidade."));
+                ambienteValido = false;
+            }
+        }
+
         // RN1: ao menos um período, término posterior ao início
         List<Periodo> periodos = in.periodos() == null ? List.of() : in.periodos();
         if (periodos.isEmpty()) {
@@ -87,7 +97,7 @@ public class ReservaValidator {
         });
 
         // RN5/RN6: conflito com o mesmo ambiente, seus pais e filhos, com margem de 30 min
-        if (in.ambienteId() != null && !validos.isEmpty()) {
+        if (in.ambienteId() != null && ambienteValido && !validos.isEmpty()) {
             long ambienteId = in.ambienteId();
             Set<Long> relacionados = dados.ambientesRelacionados(ambienteId);
             validos.forEach((n, p) -> {

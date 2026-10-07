@@ -10,14 +10,18 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-/** Implementação em memória de {@link DadosValidacao} para os testes das regras. */
-class DadosEmMemoria implements DadosValidacao {
+/** Implementação em memória de {@link DadosValidacao} e {@link DadosAmbiente} para os testes das regras. */
+class DadosEmMemoria implements DadosValidacao, DadosAmbiente {
 
     record Uso(long reservaId, long recursoId, int qtd, Periodo periodo) {
     }
 
+    static final long UNIDADE_PADRAO = 1L;
+
     final Map<Long, Long> pai = new HashMap<>();
     final Map<Long, String> nomes = new HashMap<>();
+    final Set<Long> inativos = new HashSet<>();
+    final Map<Long, Long> unidades = new HashMap<>();
     final List<PeriodoOcupado> ocupados = new ArrayList<>();
     final Map<Long, RecursoInfo> recursos = new HashMap<>();
     final List<Uso> usos = new ArrayList<>();
@@ -27,6 +31,16 @@ class DadosEmMemoria implements DadosValidacao {
         if (idPai != null) {
             pai.put(id, idPai);
         }
+        return this;
+    }
+
+    DadosEmMemoria inativar(long id) {
+        inativos.add(id);
+        return this;
+    }
+
+    DadosEmMemoria naUnidade(long id, long unidadeId) {
+        unidades.put(id, unidadeId);
         return this;
     }
 
@@ -43,6 +57,29 @@ class DadosEmMemoria implements DadosValidacao {
     DadosEmMemoria usar(long reservaId, long recursoId, int qtd, Periodo p) {
         usos.add(new Uso(reservaId, recursoId, qtd, p));
         return this;
+    }
+
+    private AmbienteInfo info(long id) {
+        return new AmbienteInfo(id, nomes.get(id), pai.get(id), !inativos.contains(id),
+                unidades.getOrDefault(id, UNIDADE_PADRAO));
+    }
+
+    @Override
+    public Optional<AmbienteInfo> ambiente(long ambienteId) {
+        return nomes.containsKey(ambienteId) ? Optional.of(info(ambienteId)) : Optional.empty();
+    }
+
+    @Override
+    public List<AmbienteInfo> ambientes(long unidadeId) {
+        return nomes.keySet().stream().map(this::info).filter(a -> a.unidadeId() == unidadeId).toList();
+    }
+
+    @Override
+    public List<PeriodoOcupado> periodosNaoTranscorridos(Set<Long> ambienteIds, LocalDateTime agora) {
+        return ocupados.stream()
+                .filter(o -> ambienteIds.contains(o.ambienteId()))
+                .filter(o -> o.termino().isAfter(agora))
+                .toList();
     }
 
     @Override

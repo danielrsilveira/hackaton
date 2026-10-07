@@ -15,6 +15,7 @@ export interface Usuario {
   envolvidoId: number | null;
 }
 export interface Ambiente { id: number; descricao: string; idPai: number | null; ativo: boolean; }
+export interface AmbienteInput { descricao: string; idPai: number | null; ativo: boolean; }
 export interface Disposicao { id: number; descricao: string; iconeArquivo: string; }
 export interface Recurso {
   id: number; descricao: string; limitado: boolean; disponibilidade: number;
@@ -96,6 +97,10 @@ export class Api {
 
   usuarios() { return this.http.get<Usuario[]>('/api/usuarios'); }
   ambientes() { return this.http.get<Ambiente[]>('/api/ambientes'); }
+  /** F9: inclui inativos; somente administrador. */
+  ambientesTodos() { return this.http.get<Ambiente[]>('/api/ambientes?todos=true'); }
+  criarAmbiente(a: AmbienteInput) { return this.http.post<Ambiente>('/api/ambientes', a); }
+  alterarAmbiente(id: number, a: AmbienteInput) { return this.http.put<Ambiente>(`/api/ambientes/${id}`, a); }
   disposicoes() { return this.http.get<Disposicao[]>('/api/disposicoes'); }
   recursos(ambienteId: number | null) {
     const q = ambienteId == null ? '' : `?ambienteId=${ambienteId}`;

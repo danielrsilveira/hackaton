@@ -2,13 +2,20 @@ package br.mp.mpf.sisgares.web;
 
 import java.util.List;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+
+import br.mp.mpf.sisgares.dominio.AmbienteInput;
+import br.mp.mpf.sisgares.servico.AmbienteService;
 
 import br.mp.mpf.sisgares.infra.CadastroRepository;
 import br.mp.mpf.sisgares.infra.CadastroRepository.Ambiente;
@@ -25,10 +32,12 @@ public class CadastroController {
 
     private final CadastroRepository cadastros;
     private final UsuarioAtual usuarios;
+    private final AmbienteService ambientes;
 
-    public CadastroController(CadastroRepository cadastros, UsuarioAtual usuarios) {
+    public CadastroController(CadastroRepository cadastros, UsuarioAtual usuarios, AmbienteService ambientes) {
         this.cadastros = cadastros;
         this.usuarios = usuarios;
+        this.ambientes = ambientes;
     }
 
     /** Lista de usuários fictícios para o seletor de perfil da demonstração. */
@@ -37,9 +46,29 @@ public class CadastroController {
         return cadastros.usuarios();
     }
 
+    /** Ambientes ativos da unidade. Com {@code todos=true} (só administrador), inclui os inativos. */
     @GetMapping("/ambientes")
-    public List<Ambiente> ambientes(@RequestHeader(value = UsuarioAtual.HEADER, required = false) Long uid) {
+    public List<Ambiente> ambientes(@RequestParam(defaultValue = "false") boolean todos,
+            @RequestHeader(value = UsuarioAtual.HEADER, required = false) Long uid) {
+        if (todos) {
+            return cadastros.ambientesTodos(usuarios.admin(uid).unidadeId());
+        }
         return cadastros.ambientes(usuarios.de(uid).unidadeId());
+    }
+
+    /** F9/RF01: somente administrador. */
+    @PostMapping("/ambientes")
+    @ResponseStatus(HttpStatus.CREATED)
+    public Ambiente criarAmbiente(@RequestBody AmbienteInput in,
+            @RequestHeader(value = UsuarioAtual.HEADER, required = false) Long uid) {
+        return ambientes.criar(usuarios.admin(uid).unidadeId(), in);
+    }
+
+    /** F9/RF01: somente administrador. Inativar = enviar {@code ativo: false}. */
+    @PutMapping("/ambientes/{id}")
+    public Ambiente alterarAmbiente(@PathVariable long id, @RequestBody AmbienteInput in,
+            @RequestHeader(value = UsuarioAtual.HEADER, required = false) Long uid) {
+        return ambientes.alterar(id, usuarios.admin(uid).unidadeId(), in);
     }
 
     @GetMapping("/disposicoes")

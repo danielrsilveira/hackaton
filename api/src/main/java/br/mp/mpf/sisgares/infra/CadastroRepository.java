@@ -9,7 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import br.mp.mpf.sisgares.dominio.ConfigRegras;
 
-/** Leitura das tabelas básicas e da configuração. */
+/** Tabelas básicas (leitura e cadastro de ambientes) e configuração. */
 @Repository
 public class CadastroRepository {
 
@@ -79,6 +79,31 @@ public class CadastroRepository {
     public List<Ambiente> ambientes(long unidadeId) {
         return jdbc.sql("select id, descricao, id_pai, ativo from ambiente where ativo and unidade_id = :uni order by descricao")
                 .param("uni", unidadeId).query(Ambiente.class).list();
+    }
+
+    /** F9/RF01: todos os ambientes da unidade, inclusive inativos (tela de cadastro). */
+    public List<Ambiente> ambientesTodos(long unidadeId) {
+        return jdbc.sql("select id, descricao, id_pai, ativo from ambiente where unidade_id = :uni order by descricao")
+                .param("uni", unidadeId).query(Ambiente.class).list();
+    }
+
+    public Optional<Ambiente> ambiente(long id, long unidadeId) {
+        return jdbc.sql("select id, descricao, id_pai, ativo from ambiente where id = :id and unidade_id = :uni")
+                .param("id", id).param("uni", unidadeId).query(Ambiente.class).optional();
+    }
+
+    public long inserirAmbiente(long unidadeId, String descricao, Long idPai, boolean ativo) {
+        return jdbc.sql("""
+                insert into ambiente (descricao, id_pai, ativo, unidade_id)
+                values (:d, :p, :a, :uni) returning id""")
+                .param("d", descricao).param("p", idPai).param("a", ativo).param("uni", unidadeId)
+                .query(Long.class).single();
+    }
+
+    public void atualizarAmbiente(long id, long unidadeId, String descricao, Long idPai, boolean ativo) {
+        jdbc.sql("update ambiente set descricao = :d, id_pai = :p, ativo = :a where id = :id and unidade_id = :uni")
+                .param("d", descricao).param("p", idPai).param("a", ativo).param("id", id).param("uni", unidadeId)
+                .update();
     }
 
     public List<Disposicao> disposicoes() {
