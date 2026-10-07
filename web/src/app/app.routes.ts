@@ -9,6 +9,7 @@ export const routes: Routes = [
   { path: 'atendimento', title: 'Painel do atendente – SISGARES', loadComponent: () => import('./paginas/atendimento').then((m) => m.Atendimento) },
   { path: 'notificacoes', title: 'Notificações – SISGARES', loadComponent: () => import('./paginas/notificacoes').then((m) => m.Notificacoes) },
   { path: 'cadastros/ambientes', title: 'Ambientes – SISGARES', loadComponent: () => import('./paginas/ambientes').then((m) => m.Ambientes) },
+  { path: 'cadastros/setores', title: 'Setores – SISGARES', loadComponent: () => import('./paginas/setores').then((m) => m.Setores) },
   { path: 'config', title: 'Configurações – SISGARES', loadComponent: () => import('./paginas/config').then((m) => m.Configuracoes) },
   { path: '**', redirectTo: 'painel' },
 ];
