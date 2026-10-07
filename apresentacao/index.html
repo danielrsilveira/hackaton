@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SISGARES · Apresentação do projeto</title>
+<style>
+  :root {
+    --primaria: #1351b4; --primaria-escura: #0c326f; --primaria-50: #eef4fd;
+    --tinta: #0f172a; --texto: #1e293b; --suave: #475569; --linha: #e2e8f0; --fundo: #f3f5f9;
+    --sucesso: #067647; --sucesso-50: #ecfdf3; --alerta: #93370d; --alerta-50: #fffaeb;
+    font-family: 'Inter', 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, Roboto, 'Helvetica Neue', Arial, sans-serif;
+    color: var(--texto); -webkit-font-smoothing: antialiased;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #0b1220; }
+  h1, h2, h3, p, ul, figure { margin: 0; }
+
+  /* Palco 16:9 fixo (1280x720), escalado para a janela no modo apresentação. */
+  .slide {
+    position: relative; width: 1280px; height: 720px; background: var(--fundo); overflow: hidden;
+    padding: 36px 48px; margin: 0 auto 24px; display: flex; flex-direction: column;
+  }
+  body.apresentando { overflow: hidden; }
+  body.apresentando .slide { position: absolute; top: 50%; left: 50%; margin: 0; display: none; }
+  body.apresentando .slide.ativo { display: flex; }
+
+  .topo { display: flex; align-items: baseline; justify-content: space-between; gap: 24px; margin-bottom: 16px; }
+  h2 { font-size: 32px; font-weight: 800; color: var(--tinta); }
+  .num { font-size: 13px; color: var(--suave); font-variant-numeric: tabular-nums; }
+  .rodape { position: absolute; left: 48px; right: 48px; bottom: 12px; display: flex; justify-content: space-between; font-size: 12px; color: var(--suave); }
+
+  /* ---------- Slide 1 ---------- */
+  .capa { background: linear-gradient(135deg, #0c326f 0%, #1351b4 100%); color: #fff; padding: 0; flex-direction: row; }
+  .capa .esq { flex: 0 0 470px; padding: 64px 0 48px 56px; display: flex; flex-direction: column; }
+  .capa .dir { flex: 1; padding: 56px 48px 48px 40px; display: flex; flex-direction: column; justify-content: center; }
+  .origem { font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #b6d0f7; }
+  .capa h1 { font-size: 72px; font-weight: 800; letter-spacing: -.02em; line-height: 1; margin: 12px 0 14px; color: #fff; }
+  .capa .sub { font-size: 24px; line-height: 1.3; color: #e6eefb; }
+  .numeros { display: flex; gap: 12px; margin-top: 34px; }
+  .numero { background: rgb(255 255 255 / 12%); border: 1px solid rgb(255 255 255 / 25%); border-radius: 12px; padding: 12px 14px; min-width: 110px; }
+  .numero b { display: block; font-size: 36px; line-height: 1; color: #fff; }
+  .numero span { display: block; margin-top: 6px; font-size: 13px; line-height: 1.3; color: #dbe8fb; }
+  .funcs { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; }
+  .funcs li { font-size: 13px; background: rgb(255 255 255 / 14%); border: 1px solid rgb(255 255 255 / 28%); border-radius: 999px; padding: 4px 11px; color: #fff; }
+  .funcs li.parcial { background: transparent; border-style: dashed; color: #dbe8fb; }
+  .print { width: 100%; display: block; border-radius: 12px; box-shadow: 0 24px 48px -12px rgb(0 0 0 / 60%); border: 1px solid rgb(255 255 255 / 30%); background: #fff; }
+  .capa figcaption { margin-top: 10px; font-size: 13px; color: #b6d0f7; }
+
+  /* ---------- Slide 2 ---------- */
+  .diagrama { padding: 10px 12px; flex: 1; display: flex; align-items: center; margin-bottom: 26px; }
+  .diagrama svg { display: block; width: 100%; height: auto; }
+  .cartao { background: #fff; border: 1px solid var(--linha); border-radius: 12px; box-shadow: 0 1px 3px rgb(16 24 40 / 10%); }
+
+  /* ---------- Slide 3 ---------- */
+  .telas { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .tela { overflow: hidden; }
+  .tela img { display: block; width: 100%; height: 205px; object-fit: cover; object-position: top left; border-bottom: 1px solid var(--linha); }
+  .tela figcaption { padding: 8px 14px; font-size: 15px; font-weight: 600; color: var(--tinta); display: flex; align-items: center; gap: 8px; }
+  .tela figcaption small { font-weight: 500; font-size: 13px; color: var(--suave); }
+  .novo { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; background: var(--sucesso-50); color: var(--sucesso); border: 1px solid #abefc6; border-radius: 999px; padding: 1px 8px; }
+  .ia { height: 205px; padding: 16px 20px; display: flex; flex-direction: column; justify-content: center; gap: 10px; border-bottom: 1px solid var(--linha); background: linear-gradient(180deg, #f0fdf9 0%, #fff 100%); }
+  .ia-texto { font-size: 17px; line-height: 1.4; font-style: italic; color: var(--tinta); background: #fff; border: 1px solid #99f6e0; border-radius: 10px; padding: 10px 14px; }
+  .ia-seta { font-size: 13px; font-weight: 700; color: #0f766e; }
+  .ia-campos { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+  .ia-campos li { font-size: 13px; font-weight: 600; background: #ccfbef; color: #0f5132; border: 1px solid #5eead4; border-radius: 999px; padding: 3px 12px; }
+  .falta { margin-top: 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .falta b { font-size: 14px; color: var(--alerta); margin-right: 4px; }
+  .falta span { font-size: 13px; background: var(--alerta-50); border: 1px solid #fedf89; border-radius: 999px; padding: 3px 11px; color: var(--texto); }
+
+  .dica { position: fixed; right: 14px; bottom: 10px; font-size: 12px; color: #94a3b8; display: none; }
+  body.apresentando .dica { display: block; }
+
+  @media print {
+    @page { size: 1280px 720px; margin: 0; }
+    body { background: #fff; }
+    .slide, body.apresentando .slide { position: relative !important; top: 0 !important; left: 0 !important; transform: none !important;
+      display: flex !important; margin: 0; break-after: page; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .dica { display: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ======================= SLIDE 1 ======================= -->
+<section class="slide capa" aria-label="Slide 1 de 3: SISGARES">
+  <div class="esq">
+    <span class="origem">MPF · Hackathon</span>
+    <h1>SISGARES</h1>
+    <p class="sub">Reserva de ambientes, recursos e serviços.</p>
+    <div class="numeros">
+      <div class="numero"><b>16</b><span>regras de negócio</span></div>
+      <div class="numero"><b>72</b><span>testes das regras</span></div>
+      <div class="numero"><b>3</b><span>perfis de acesso</span></div>
+    </div>
+    <ul class="funcs" aria-label="Funcionalidades">
+      <li>✓ Reserva</li><li>✓ Conflitos</li><li>✓ Quantidade</li><li>✓ Alterar e cancelar</li>
+      <li>✓ E-mail por setor</li><li>✓ SNP</li><li>✓ Painel de horários</li><li>✓ Painel do atendente</li>
+      <li>✓ Configurações</li><li>✓ Preenchimento por IA</li><li class="parcial">◐ Cadastros (setores e ambientes prontos)</li>
+    </ul>
+  </div>
+  <div class="dir">
+    <figure>
+      <img class="print" src="img/painel-horarios.png" alt="Painel de horários: grade de datas por horários de 30 minutos, com horários livres, reservados e em margem de tolerância.">
+      <figcaption>Painel de horários</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ======================= SLIDE 2 ======================= -->
+<section class="slide" aria-label="Slide 2 de 3: arquitetura na AWS">
+  <div class="topo">
+    <h2>Arquitetura na AWS</h2>
+    <span class="num">Stack CloudFormation <b>sisgares</b> · us-east-1</span>
+  </div>
+
+  <div class="cartao diagrama">
+    <svg viewBox="0 0 1160 470" role="img" aria-labelledby="dg-t dg-d" xmlns="http://www.w3.org/2000/svg" font-family="Inter, 'Segoe UI', system-ui, Arial, sans-serif">
+      <title id="dg-t">Diagrama da arquitetura do SISGARES na AWS</title>
+      <desc id="dg-d">O usuário acessa o CloudFront por HTTPS. O CloudFront serve o site Angular a partir de um bucket S3 privado e encaminha as rotas /api e /mock-snp para um Application Load Balancer. O balanceador envia o tráfego para uma tarefa ECS Fargate com Spring Boot, que usa um banco Aurora Serverless v2 PostgreSQL. A imagem vem do ECR, a senha do banco do Secrets Manager e os logs vão para o CloudWatch Logs. A tarefa também chama o Amazon Bedrock (Claude Haiku 4.5) para preencher a reserva a partir de um texto. SES e SQS estão previstos para as próximas fases.</desc>
+      <defs>
+        <marker id="seta" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#334155"/>
+        </marker>
+      </defs>
+
+      <!-- VPC -->
+      <rect x="410" y="150" width="735" height="165" rx="12" fill="#faf8ff" stroke="#8c4fff" stroke-width="1.5" stroke-dasharray="6 4"/>
+      <text x="426" y="172" font-size="13" font-weight="700" fill="#5925dc">VPC padrão · subnets públicas · sem NAT Gateway</text>
+
+      <!-- Usuário -->
+      <rect x="20" y="196" width="110" height="80" rx="10" fill="#fff" stroke="#94a3b8"/>
+      <circle cx="75" cy="224" r="9" fill="#475569"/>
+      <path d="M57 252 q0 -16 18 -16 q18 0 18 16 z" fill="#475569"/>
+      <text x="75" y="268" font-size="12" font-weight="700" fill="#0f172a" text-anchor="middle">Usuário</text>
+
+      <!-- CloudFront -->
+      <g>
+        <rect x="190" y="180" width="150" height="112" rx="10" fill="#fff" stroke="#cbd5e1"/>
+        <rect x="190" y="180" width="6" height="112" rx="3" fill="#8c4fff"/>
+        <text x="208" y="206" font-size="16" font-weight="700" fill="#0f172a">CloudFront</text>
+        <text x="208" y="226" font-size="12" fill="#475569">HTTPS · HTTP/2 e 3</text>
+        <text x="208" y="244" font-size="12" fill="#475569">CloudFront Function:</text>
+        <text x="208" y="260" font-size="12" fill="#475569">rotas do Angular (SPA)</text>
+        <text x="208" y="278" font-size="11.5" fill="#067647" font-weight="600">Ponto único de entrada</text>
+      </g>
+
+      <!-- S3 -->
+      <g>
+        <rect x="470" y="30" width="215" height="84" rx="10" fill="#fff" stroke="#cbd5e1"/>
+        <rect x="470" y="30" width="6" height="84" rx="3" fill="#7aa116"/>
+        <text x="488" y="56" font-size="16" font-weight="700" fill="#0f172a">S3 (bucket privado)</text>
+        <text x="488" y="76" font-size="12" fill="#475569">Front Angular compilado</text>
+        <text x="488" y="94" font-size="11.5" fill="#067647" font-weight="600">Leitura só pelo CloudFront (OAC)</text>
+      </g>
+
+      <!-- ALB -->
+      <g>
+        <rect x="430" y="190" width="165" height="100" rx="10" fill="#fff" stroke="#cbd5e1"/>
+        <rect x="430" y="190" width="6" height="100" rx="3" fill="#8c4fff"/>
+        <text x="448" y="216" font-size="16" font-weight="700" fill="#0f172a">ALB</text>
+        <text x="448" y="236" font-size="12" fill="#475569">Balanceador de carga</text>
+        <text x="448" y="254" font-size="12" fill="#475569">/actuator/health</text>
+        <text x="448" y="276" font-size="11.5" fill="#067647" font-weight="600">SG: só o CloudFront</text>
+      </g>
+
+      <!-- ECS Fargate -->
+      <g>
+        <rect x="650" y="190" width="190" height="100" rx="10" fill="#fff" stroke="#cbd5e1"/>
+        <rect x="650" y="190" width="6" height="100" rx="3" fill="#ed7100"/>
+        <text x="668" y="216" font-size="16" font-weight="700" fill="#0f172a">ECS Fargate</text>
+        <text x="668" y="236" font-size="12" fill="#475569">API Spring Boot · 1 tarefa</text>
+        <text x="668" y="254" font-size="12" fill="#475569">1 vCPU · 2 GB · rollback auto</text>
+        <text x="668" y="276" font-size="11.5" fill="#067647" font-weight="600">SG: só o ALB</text>
+      </g>
+
+      <!-- Aurora -->
+      <g>
+        <rect x="920" y="190" width="205" height="100" rx="10" fill="#fff" stroke="#cbd5e1"/>
+        <rect x="920" y="190" width="6" height="100" rx="3" fill="#c925d1"/>
+        <text x="938" y="216" font-size="16" font-weight="700" fill="#0f172a">Aurora Serverless v2</text>
+        <text x="938" y="236" font-size="12" fill="#475569">PostgreSQL 17 · 0,5–2 ACU</text>
+        <text x="938" y="254" font-size="12" fill="#475569">Criptografado · privado</text>
+        <text x="938" y="276" font-size="11.5" fill="#067647" font-weight="600">SG: só a API</text>
+      </g>
+
+      <!-- Serviços regionais -->
+      <g>
+        <rect x="600" y="372" width="175" height="68" rx="10" fill="#fff" stroke="#cbd5e1"/>
+        <rect x="600" y="372" width="6" height="68" rx="3" fill="#ed7100"/>
+        <text x="618" y="396" font-size="15" font-weight="700" fill="#0f172a">ECR</text>
+        <text x="618" y="414" font-size="12" fill="#475569">Imagem Docker da API</text>
+        <text x="618" y="430" font-size="12" fill="#475569">scan ao enviar</text>
+      </g>
+      <g>
+        <rect x="795" y="372" width="175" height="68" rx="10" fill="#fff" stroke="#cbd5e1"/>
+        <rect x="795" y="372" width="6" height="68" rx="3" fill="#dd344c"/>
+        <text x="813" y="396" font-size="15" font-weight="700" fill="#0f172a">Secrets Manager</text>
+        <text x="813" y="414" font-size="12" fill="#475569">Senha do banco</text>
+        <text x="813" y="430" font-size="12" fill="#475569">gerada pelo RDS</text>
+      </g>
+      <g>
+        <rect x="990" y="372" width="155" height="68" rx="10" fill="#fff" stroke="#cbd5e1"/>
+        <rect x="990" y="372" width="6" height="68" rx="3" fill="#e7157b"/>
+        <text x="1008" y="396" font-size="15" font-weight="700" fill="#0f172a">CloudWatch Logs</text>
+        <text x="1008" y="414" font-size="12" fill="#475569">/sisgares/api</text>
+        <text x="1008" y="430" font-size="12" fill="#475569">retenção de 14 dias</text>
+      </g>
+
+      <!-- Bedrock -->
+      <g>
+        <rect x="860" y="30" width="285" height="84" rx="10" fill="#fff" stroke="#cbd5e1"/>
+        <rect x="860" y="30" width="6" height="84" rx="3" fill="#01a88d"/>
+        <text x="878" y="56" font-size="16" font-weight="700" fill="#0f172a">Amazon Bedrock</text>
+        <text x="878" y="76" font-size="12" fill="#475569">Claude Haiku 4.5 · Converse API</text>
+        <text x="878" y="94" font-size="11.5" fill="#067647" font-weight="600">Permissão só na role da tarefa</text>
+      </g>
+
+      <!-- Próximas fases (tracejado) -->
+      <text x="190" y="362" font-size="12" font-weight="700" fill="#64748b">Próximas fases</text>
+      <g>
+        <rect x="190" y="372" width="170" height="68" rx="10" fill="#f8fafc" stroke="#94a3b8" stroke-dasharray="5 4"/>
+        <text x="206" y="396" font-size="15" font-weight="700" fill="#475569">SES</text>
+        <text x="206" y="414" font-size="12" fill="#64748b">E-mail real por setor</text>
+        <text x="206" y="430" font-size="12" fill="#64748b">(hoje simulado)</text>
+      </g>
+      <g>
+        <rect x="380" y="372" width="200" height="68" rx="10" fill="#f8fafc" stroke="#94a3b8" stroke-dasharray="5 4"/>
+        <text x="396" y="396" font-size="15" font-weight="700" fill="#475569">SQS</text>
+        <text x="396" y="414" font-size="12" fill="#64748b">Fila de e-mails e</text>
+        <text x="396" y="430" font-size="12" fill="#64748b">pedidos SNP</text>
+      </g>
+
+      <!-- Setas -->
+      <g stroke="#334155" stroke-width="2" fill="none">
+        <line x1="130" y1="236" x2="188" y2="236" marker-end="url(#seta)"/>
+        <polyline points="300,180 300,72 468,72" marker-end="url(#seta)"/>
+        <line x1="340" y1="236" x2="428" y2="236" marker-end="url(#seta)"/>
+        <line x1="595" y1="236" x2="648" y2="236" marker-end="url(#seta)"/>
+        <line x1="840" y1="236" x2="918" y2="236" marker-end="url(#seta)"/>
+        <polyline points="800,190 800,72 858,72" marker-end="url(#seta)"/>
+        <line x1="690" y1="370" x2="710" y2="292" marker-end="url(#seta)" stroke-dasharray="5 3"/>
+        <line x1="880" y1="370" x2="800" y2="292" marker-end="url(#seta)" stroke-dasharray="5 3"/>
+        <line x1="1060" y1="370" x2="830" y2="292" marker-end="url(#seta)" stroke-dasharray="5 3"/>
+      </g>
+
+      <!-- Rótulos das setas -->
+      <g font-size="11.5" fill="#334155">
+        <text x="159" y="228" text-anchor="middle">HTTPS</text>
+        <text x="312" y="62">site estático (/*)</text>
+        <text x="792" y="132" text-anchor="end">InvokeModel</text>
+        <text x="372" y="215" text-anchor="middle" font-size="10.5">/api/*</text>
+        <text x="372" y="227" text-anchor="middle" font-size="10.5">/mock-snp/*</text>
+        <text x="621" y="228" text-anchor="middle">:8080</text>
+        <text x="879" y="228" text-anchor="middle">:5432</text>
+        <text x="688" y="338" text-anchor="end">pull da imagem</text>
+        <text x="828" y="338" text-anchor="end">DB_PASSWORD</text>
+        <text x="978" y="338" text-anchor="start">logs</text>
+      </g>
+    </svg>
+  </div>
+  <div class="rodape"><span>Fase 1 · CloudFront → ALB em HTTP, 1 tarefa, banco em uma AZ · Bedrock em us-east-1 via inference profile</span></div>
+</section>
+
+<!-- ======================= SLIDE 3 ======================= -->
+<section class="slide" aria-label="Slide 3 de 3: o sistema em uso">
+  <div class="topo">
+    <h2>O sistema em uso</h2>
+    <span class="num">Dados fictícios · usuários simulados</span>
+  </div>
+
+  <div class="telas">
+    <figure class="cartao tela">
+      <img src="img/conflito.png" alt="Formulário de reserva com o aviso RN5: o período conflita com a reserva 900002 do Auditório, considerando a margem de 30 minutos.">
+      <figcaption>Conflito avisado ao escolher o período <small>RN5, RN6</small></figcaption>
+    </figure>
+    <figure class="cartao tela">
+      <img src="img/notificacoes.png" alt="Caixa de saída de e-mails por setor e o conteúdo de um e-mail de reserva alterada, com os campos alterados em destaque.">
+      <figcaption>E-mail por setor, com o que mudou em destaque <small>RN10, RN12</small></figcaption>
+    </figure>
+    <figure class="cartao tela">
+      <img src="img/atendente.png" alt="Painel do atendente com cards de reservas por data, mostrando horário, finalidade, solicitante, recursos e pedidos SNP.">
+      <figcaption>Painel do atendente, por data <small>reservas, recursos e SNP</small></figcaption>
+    </figure>
+    <figure class="cartao tela">
+      <div class="ia" role="img" aria-label="Exemplo de texto livre que o Bedrock transforma nos campos da reserva: ambiente, finalidade, participantes, período e recursos.">
+        <p class="ia-texto">“Reunião do GT de dados amanhã das 14h às 16h na sala de reuniões, 12 pessoas, com projetor e café.”</p>
+        <p class="ia-seta" aria-hidden="true">↓ Bedrock · Claude Haiku 4.5</p>
+        <ul class="ia-campos" aria-hidden="true">
+          <li>Ambiente</li><li>Finalidade</li><li>Participantes</li><li>Período</li><li>Recursos</li>
+        </ul>
+      </div>
+      <figcaption>Preenchimento por IA <span class="novo">Novo</span> <small>nada é salvo sem conferência</small></figcaption>
+    </figure>
+  </div>
+
+  <div class="falta">
+    <b>Falta</b>
+    <span>Login real (Cognito)</span>
+    <span>HTTPS até o ALB</span>
+    <span>Lock no banco para várias tarefas</span>
+    <span>SES e SQS</span>
+    <span>Demais cadastros</span>
+  </div>
+</section>
+
+<div class="dica" aria-hidden="true">← → ou clique para navegar · F tela cheia · P ver todos / imprimir</div>
+
+<script>
+  // Modo apresentação: um slide por vez, escalado para a janela. Sem JS, os 3 slides aparecem empilhados.
+  (function () {
+    var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+    var atual = 0;
+    var LARGURA = 1280, ALTURA = 720;
+
+    function escalar() {
+      var s = Math.min(window.innerWidth / LARGURA, window.innerHeight / ALTURA);
+      slides.forEach(function (el) { el.style.transform = 'translate(-50%, -50%) scale(' + s + ')'; });
+    }
+    function mostrar(i) {
+      atual = Math.max(0, Math.min(slides.length - 1, i));
+      slides.forEach(function (el, n) { el.classList.toggle('ativo', n === atual); });
+      history.replaceState(null, '', '#' + (atual + 1));
+    }
+    function iniciar() {
+      document.body.classList.add('apresentando');
+      var inicial = parseInt(location.hash.slice(1), 10);
+      escalar();
+      mostrar(isNaN(inicial) ? 0 : inicial - 1);
+    }
+    function sair() { document.body.classList.remove('apresentando'); slides.forEach(function (el) { el.style.transform = ''; }); }
+
+    document.addEventListener('keydown', function (e) {
+      if (!document.body.classList.contains('apresentando')) { if (e.key === 'p' || e.key === 'P') { iniciar(); } return; }
+      if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].indexOf(e.key) >= 0) { mostrar(atual + 1); e.preventDefault(); }
+      else if (['ArrowLeft', 'ArrowUp', 'PageUp'].indexOf(e.key) >= 0) { mostrar(atual - 1); e.preventDefault(); }
+      else if (e.key === 'Home') { mostrar(0); }
+      else if (e.key === 'End') { mostrar(slides.length - 1); }
+      else if (e.key === 'f' || e.key === 'F') { if (document.fullscreenElement) { document.exitFullscreen(); } else { document.documentElement.requestFullscreen(); } }
+      else if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { if (!document.fullscreenElement) { sair(); } }
+    });
+    document.addEventListener('click', function (e) {
+      if (document.body.classList.contains('apresentando')) { mostrar(atual + (e.clientX < window.innerWidth / 4 ? -1 : 1)); }
+    });
+    window.addEventListener('resize', function () { if (document.body.classList.contains('apresentando')) { escalar(); } });
+    window.addEventListener('beforeprint', sair);
+    iniciar();
+  })();
+</script>
+</body>
+</html>
