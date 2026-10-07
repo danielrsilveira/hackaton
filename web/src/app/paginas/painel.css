@@ -20,6 +20,12 @@
 thead th.hoje .dia-numero { display: inline-block; background: var(--primaria); color: #fff; border-radius: 999px; padding: 0 0.55rem; }
 thead th.hoje .dia-semana { color: var(--primaria); }
 
+/* Finais de semana: sombreamento suave para distinguir sáb/dom das colunas úteis. */
+.grade thead th.fds { background: #eef1f5; }
+.grade thead th.fds .dia-semana { color: #64748b; }
+.cel.fds { background: #f4f6f9; }
+.cel.livre.fds .slot:hover, .cel.livre.fds .slot:focus-visible { background: var(--primaria-50); }
+
 .col-hora {
   position: sticky; left: 0; z-index: 2; background: var(--superficie); width: 4.2rem; min-width: 4.2rem;
   text-align: right; padding: 0 0.6rem !important; font-weight: 600; color: var(--suave); font-variant-numeric: tabular-nums;
