@@ -73,6 +73,7 @@
               <select id="r-ambiente" name="ambiente" [(ngModel)]="ambienteId" (ngModelChange)="aoTrocarAmbiente()">
                 <option [ngValue]="null">Não solicitado / local próprio</option>
                 @for (a of ambientes(); track a.id) { <option [ngValue]="a.id">{{ a.descricao }}</option> }
+                @if (ambienteInativo()) { <option [ngValue]="detalhe()!.ambienteId">{{ detalhe()!.ambiente }} (inativo)</option> }
               </select>
             </div>
             <div>

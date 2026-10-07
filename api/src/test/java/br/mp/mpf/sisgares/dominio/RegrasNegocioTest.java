@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
@@ -369,6 +370,212 @@ class RegrasNegocioTest {
         @Test
         void cancelada() {
             assertThat(StatusReserva.calcular(true, periodo, dt("10/11 10:00"))).isEqualTo(StatusReserva.CANCELADA);
+        }
+    }
+
+    @Nested
+    @DisplayName("RF02 – reserva só em ambiente ativo da unidade")
+    class Rf02Reserva {
+        @Test
+        void ambienteInativoBloqueia() {
+            var d = dados().inativar(SALA_2);
+            assertThat(regras(validar(reserva(SALA_2, List.of(), per("10/11 09:00", "10/11 10:00")), d)))
+                    .containsExactly("RF02");
+        }
+
+        @Test
+        void ambienteDeOutraUnidadeBloqueia() {
+            var d = dados().naUnidade(SALA_2, 99L);
+            assertThat(regras(validar(reserva(SALA_2, List.of(), per("10/11 09:00", "10/11 10:00")), d)))
+                    .containsExactly("RF02");
+        }
+
+        @Test
+        void ambienteInexistenteBloqueia() {
+            assertThat(regras(validar(reserva(404L, List.of(), per("10/11 09:00", "10/11 10:00")), dados())))
+                    .containsExactly("RF02");
+        }
+    }
+
+    @Nested
+    @DisplayName("RF02 – cadastro de ambientes")
+    class Rf02Cadastro {
+        final AmbienteValidator av = new AmbienteValidator(Clock.fixed(dt("01/11 10:00").atZone(FUSO).toInstant(), FUSO));
+
+        List<Erro> salvar(Long id, String descricao, Long idPai, boolean ativo, DadosEmMemoria d) {
+            return av.validar(id, new AmbienteInput(descricao, idPai, ativo), UNIDADE, d);
+        }
+
+        @Test
+        void novoAmbienteFilhoDoAuditorioEhAceito() {
+            assertThat(salvar(null, "Auditório (Parte C)", AUDITORIO, true, dados())).isEmpty();
+        }
+
+        @Test
+        void descricaoObrigatoria() {
+            assertThat(regras(salvar(null, "  ", null, true, dados()))).containsExactly("RF02");
+        }
+
+        @Test
+        void descricaoRepetidaEntreAtivosBloqueia() {
+            assertThat(regras(salvar(null, " sala 1 ", null, true, dados()))).containsExactly("RF02");
+        }
+
+        @Test
+        void descricaoDeAmbienteInativoPodeSerReusada() {
+            assertThat(salvar(null, "Sala 1", null, true, dados().inativar(SALA_1))).isEmpty();
+        }
+
+        @Test
+        void paiDeOutraUnidadeBloqueia() {
+            assertThat(regras(salvar(null, "Nova sala", SALA_2, true, dados().naUnidade(SALA_2, 99L))))
+                    .containsExactly("RF02");
+        }
+
+        @Test
+        void paiInativoBloqueia() {
+            assertThat(regras(salvar(null, "Nova sala", SALA_2, true, dados().inativar(SALA_2))))
+                    .containsExactly("RF02");
+        }
+
+        @Test
+        void ambienteNaoPodeSerPaiDeSiMesmo() {
+            assertThat(regras(salvar(SALA_1, "Sala 1", SALA_1, true, dados()))).containsExactly("RF02");
+        }
+
+        @Test
+        void filhoNaoPodeVirarPaiCiclo() {
+            // Auditório → Parte A → Auditório formaria um ciclo
+            assertThat(regras(salvar(AUDITORIO, "Auditório (Completo)", SALA_A, true, dados())))
+                    .containsExactly("RF02");
+        }
+
+        @Test
+        void inativarPaiComFilhosAtivosBloqueia() {
+            assertThat(regras(salvar(AUDITORIO, "Auditório (Completo)", null, false, dados())))
+                    .containsExactly("RF02");
+        }
+
+        @Test
+        void inativarComReservaPrevistaBloqueia() {
+            var d = dados().reservar(100, SALA_1, per("10/11 09:00", "10/11 10:00"));
+            var erros = salvar(SALA_1, "Sala 1", null, false, d);
+            assertThat(regras(erros)).containsExactly("RF02");
+            assertThat(erros.getFirst().mensagem()).contains("#100");
+        }
+
+        @Test
+        void inativarComReservaJaTranscorridaEhAceito() {
+            var d = dados().reservar(100, SALA_1, per("20/10 09:00", "20/10 10:00"));
+            assertThat(salvar(SALA_1, "Sala 1", null, false, d)).isEmpty();
+        }
+
+        @Test
+        void mudarPaiQueCriaConflitoRn6Bloqueia() {
+            // Sala 1 14:00–16:00 e Auditório 15:00–17:00 não conflitam hoje; com Sala 1 filha do Auditório, sim.
+            var d = dados()
+                    .reservar(100, SALA_1, per("10/11 14:00", "10/11 16:00"))
+                    .reservar(200, AUDITORIO, per("10/11 15:00", "10/11 17:00"));
+            var erros = salvar(SALA_1, "Sala 1", AUDITORIO, true, d);
+            assertThat(regras(erros)).containsExactly("RN6");
+            assertThat(erros.getFirst().mensagem()).contains("#100", "#200");
+        }
+
+        @Test
+        void mudarPaiConsideraAMargemDe30Minutos() {
+            var d = dados()
+                    .reservar(100, SALA_1, per("10/11 14:00", "10/11 15:00"))
+                    .reservar(200, AUDITORIO, per("10/11 15:20", "10/11 17:00"));
+            assertThat(regras(salvar(SALA_1, "Sala 1", AUDITORIO, true, d))).containsExactly("RN6");
+        }
+
+        @Test
+        void mudarPaiSemConflitoEhAceito() {
+            var d = dados()
+                    .reservar(100, SALA_1, per("10/11 09:00", "10/11 10:00"))
+                    .reservar(200, AUDITORIO, per("10/11 15:00", "10/11 17:00"));
+            assertThat(salvar(SALA_1, "Sala 1", AUDITORIO, true, d)).isEmpty();
+        }
+
+        @Test
+        void mudarPaiIgnoraReservasJaTranscorridas() {
+            var d = dados()
+                    .reservar(100, SALA_1, per("20/10 14:00", "20/10 16:00"))
+                    .reservar(200, AUDITORIO, per("20/10 15:00", "20/10 17:00"));
+            assertThat(salvar(SALA_1, "Sala 1", AUDITORIO, true, d)).isEmpty();
+        }
+
+        @Test
+        void tirarFilhoDoPaiNaoCriaConflito() {
+            var d = dados()
+                    .reservar(100, SALA_A, per("10/11 14:00", "10/11 16:00"))
+                    .reservar(200, AUDITORIO, per("10/11 20:00", "10/11 21:00"));
+            assertThat(salvar(SALA_A, "Auditório (Parte A)", null, true, d)).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("RF03 – setores vinculados ao ambiente")
+    class Rf03 {
+        static final long COPA = 1L;
+        static final long TI = 2L;
+        static final long INATIVO = 3L;
+        static final long OUTRA_UNIDADE = 4L;
+        final Map<Long, SetorInfo> setores = Map.of(
+                COPA, new SetorInfo(COPA, "Copa", true, UNIDADE),
+                TI, new SetorInfo(TI, "TI", true, null),
+                INATIVO, new SetorInfo(INATIVO, "Setor extinto", false, UNIDADE),
+                OUTRA_UNIDADE, new SetorInfo(OUTRA_UNIDADE, "Copa de outra PR", true, 99L));
+
+        List<Erro> validar(Set<Long> jaVinculados, VinculoSetorInput... vs) {
+            return VinculoSetorValidator.validar(List.of(vs), UNIDADE, setores, jaVinculados);
+        }
+
+        @Test
+        void setoresComESemCodigoSnpSaoAceitos() {
+            assertThat(validar(Set.of(), new VinculoSetorInput(COPA, " "), new VinculoSetorInput(TI, "SEG-0401"))).isEmpty();
+        }
+
+        @Test
+        void listaVaziaRemoveTodosOsVinculos() {
+            assertThat(validar(Set.of())).isEmpty();
+        }
+
+        @Test
+        void setorRepetidoBloqueia() {
+            assertThat(regras(validar(Set.of(), new VinculoSetorInput(COPA, null), new VinculoSetorInput(COPA, "X1"))))
+                    .containsExactly("RF03");
+        }
+
+        @Test
+        void setorDeOutraUnidadeBloqueia() {
+            assertThat(regras(validar(Set.of(), new VinculoSetorInput(OUTRA_UNIDADE, null)))).containsExactly("RF03");
+        }
+
+        @Test
+        void setorInexistenteOuSemIdBloqueia() {
+            assertThat(validar(Set.of(), new VinculoSetorInput(404L, null), new VinculoSetorInput(null, null))).hasSize(2);
+        }
+
+        @Test
+        void novoVinculoComSetorInativoBloqueia() {
+            assertThat(regras(validar(Set.of(), new VinculoSetorInput(INATIVO, null)))).containsExactly("RF03");
+        }
+
+        @Test
+        void vinculoAntigoComSetorInativoPodeSerMantido() {
+            assertThat(validar(Set.of(INATIVO), new VinculoSetorInput(INATIVO, null))).isEmpty();
+        }
+
+        @Test
+        void codigoSnpComEspacoBloqueia() {
+            assertThat(regras(validar(Set.of(), new VinculoSetorInput(TI, "SEG 0401")))).containsExactly("RF03");
+        }
+
+        @Test
+        void codigoSnpVazioViraNulo() {
+            assertThat(VinculoSetorValidator.codigo("  ")).isNull();
+            assertThat(VinculoSetorValidator.codigo(" TI-0101 ")).isEqualTo("TI-0101");
         }
     }
 }
