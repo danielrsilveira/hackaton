@@ -49,7 +49,7 @@
     <div>
       <strong>Não foi possível salvar. Corrija os itens abaixo:</strong>
       <ul>
-        @for (e of erros(); track $index) { <li><strong>{{ e.regra }}</strong> · {{ e.mensagem }}</li> }
+        @for (e of erros(); track $index) { <li>{{ e.mensagem }}</li> }
       </ul>
     </div>
   </div>
@@ -60,7 +60,7 @@
 }
 
 @if (pronto()) {
-  <form (ngSubmit)="salvar()" novalidate>
+  <form #form="ngForm" (ngSubmit)="salvar()" novalidate>
     <fieldset [disabled]="somenteLeitura() || salvando()">
       <legend class="visualmente-oculto">Dados da reserva</legend>
 
@@ -119,9 +119,15 @@
               <label for="r-complemento">
                 Complemento do ambiente @if (ambienteId == null) { <span class="obrigatorio">(obrigatório)</span> }
               </label>
-              <input id="r-complemento" name="complemento" [(ngModel)]="complemento" [required]="ambienteId == null"
-                     aria-describedby="ajuda-complemento" maxlength="300" />
+              <input id="r-complemento" name="complemento" [(ngModel)]="complemento" #complementoCtrl="ngModel" [required]="ambienteId == null"
+                     [attr.aria-invalid]="complementoCtrl.invalid && complementoCtrl.touched"
+                     aria-describedby="ajuda-complemento err-complemento" maxlength="300" />
               <span id="ajuda-complemento" class="ajuda">Ex.: gabinete, sala ou local próprio onde o evento ocorrerá.</span>
+              <div class="msgs" id="err-complemento" aria-live="polite">
+                @if (complementoCtrl.invalid && complementoCtrl.touched) {
+                  <p class="erro-campo"><app-icone nome="alerta" [tamanho]="15" /> <span>Informe o complemento do ambiente (local próprio).</span></p>
+                }
+              </div>
             </div>
             @if (ambienteId != null) {
               <div>
@@ -146,11 +152,23 @@
           <div class="campos">
             <div>
               <label for="r-finalidade">Finalidade <span class="obrigatorio">(obrigatório)</span></label>
-              <textarea id="r-finalidade" name="finalidade" [(ngModel)]="finalidade" required rows="5"></textarea>
+              <textarea id="r-finalidade" name="finalidade" [(ngModel)]="finalidade" #finalidadeCtrl="ngModel" required rows="5"
+                        [attr.aria-invalid]="finalidadeCtrl.invalid && finalidadeCtrl.touched" aria-describedby="err-finalidade"></textarea>
+              <div class="msgs" id="err-finalidade" aria-live="polite">
+                @if (finalidadeCtrl.invalid && finalidadeCtrl.touched) {
+                  <p class="erro-campo"><app-icone nome="alerta" [tamanho]="15" /> <span>Informe a finalidade da reserva.</span></p>
+                }
+              </div>
             </div>
             <div>
               <label for="r-participantes">Participantes estimados <span class="obrigatorio">(obrigatório)</span></label>
-              <input id="r-participantes" name="participantes" type="number" min="1" [(ngModel)]="participantes" required />
+              <input id="r-participantes" name="participantes" type="number" min="1" [(ngModel)]="participantes" #participantesCtrl="ngModel" required
+                     [attr.aria-invalid]="participantesCtrl.invalid && participantesCtrl.touched" aria-describedby="err-participantes" />
+              <div class="msgs" id="err-participantes" aria-live="polite">
+                @if (participantesCtrl.invalid && participantesCtrl.touched) {
+                  <p class="erro-campo"><app-icone nome="alerta" [tamanho]="15" /> <span>Informe quantos participantes são esperados (mínimo 1).</span></p>
+                }
+              </div>
             </div>
           </div>
         </section>
@@ -167,12 +185,14 @@
                 <div>
                   <label [for]="'p-ini-' + i">Início do período {{ i + 1 }}</label>
                   <input [id]="'p-ini-' + i" [name]="'ini' + i" type="datetime-local" step="1800" [(ngModel)]="p.inicio"
-                         (ngModelChange)="aoMudarInicio(p)" required [attr.aria-describedby]="'p-err-' + i" />
+                         #iniCtrl="ngModel" (ngModelChange)="aoMudarInicio(p)" required
+                         [attr.aria-invalid]="iniCtrl.invalid && iniCtrl.touched" [attr.aria-describedby]="'p-err-' + i" />
                 </div>
                 <div>
                   <label [for]="'p-fim-' + i">Término do período {{ i + 1 }}</label>
                   <input [id]="'p-fim-' + i" [name]="'fim' + i" type="datetime-local" step="1800" [(ngModel)]="p.termino"
-                         (ngModelChange)="previa()" required [attr.aria-describedby]="'p-err-' + i" />
+                         #fimCtrl="ngModel" (ngModelChange)="previa()" required
+                         [attr.aria-invalid]="fimCtrl.invalid && fimCtrl.touched" [attr.aria-describedby]="'p-err-' + i" />
                 </div>
               </div>
               @if (periodos.length > 1) {
@@ -181,8 +201,14 @@
                 </button>
               }
               <div class="msgs" [id]="'p-err-' + i" aria-live="polite">
+                @if (iniCtrl.invalid && iniCtrl.touched) {
+                  <p class="erro-campo"><app-icone nome="alerta" [tamanho]="15" /> <span>Informe o início do período {{ i + 1 }}.</span></p>
+                }
+                @if (fimCtrl.invalid && fimCtrl.touched) {
+                  <p class="erro-campo"><app-icone nome="alerta" [tamanho]="15" /> <span>Informe o término do período {{ i + 1 }}.</span></p>
+                }
                 @for (e of errosDoPeriodo(i); track $index) {
-                  <p class="erro-campo"><app-icone nome="alerta" [tamanho]="15" /> <span><strong>{{ e.regra }}</strong> · {{ e.mensagem }}</span></p>
+                  <p class="erro-campo"><app-icone nome="alerta" [tamanho]="15" /> <span>{{ e.mensagem }}</span></p>
                 }
               </div>
             </li>
@@ -221,7 +247,7 @@
         }
         <div aria-live="polite">
           @for (e of errosGerais(); track $index) {
-            <p class="erro-campo"><app-icone nome="alerta" [tamanho]="15" /> <span><strong>{{ e.regra }}</strong> · {{ e.mensagem }}</span></p>
+            <p class="erro-campo"><app-icone nome="alerta" [tamanho]="15" /> <span>{{ e.mensagem }}</span></p>
           }
         </div>
       </section>
@@ -232,7 +258,11 @@
         @if (d?.podeCancelar) {
           <button type="button" class="perigo" (click)="cancelarReserva()">Cancelar reserva</button>
         }
-        <button type="submit"><app-icone nome="ok" /> {{ salvando() ? 'Salvando…' : d ? 'Salvar alterações' : 'Salvar reserva' }}</button>
+        <button type="submit" [disabled]="salvando() || formInvalido()"
+                [attr.aria-disabled]="salvando() || formInvalido()"
+                [attr.title]="validando() ? 'Verificando disponibilidade e regras…' : (formInvalido() ? 'Corrija as pendências do formulário para salvar.' : null)">
+          <app-icone nome="ok" /> {{ salvando() ? 'Salvando…' : d ? 'Salvar alterações' : 'Salvar reserva' }}
+        </button>
       </div>
     </fieldset>
   </form>

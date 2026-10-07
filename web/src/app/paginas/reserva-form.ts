@@ -1,19 +1,23 @@
 import { Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { FormsModule, NgForm } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
 import {
-  Ambiente, Api, Disposicao, Erro, InterpretacaoReserva, Recurso, ReservaDetalhe, ReservaInput,
+  Ambiente, Api, Config, Disposicao, Erro, InterpretacaoReserva, Recurso, ReservaDetalhe, ReservaInput,
   STATUS_ROTULO, Sessao, errosDaResposta,
 } from '../api';
-import { dataHora, isoDataHora, paraData } from '../datas';
+import { dataHora, isoDataHora, minutos, paraData } from '../datas';
 import { Icone } from '../icone';
 
 interface PeriodoForm { inicio: string; termino: string; }
 interface Selecao { marcado: boolean; quantidade: number | null; }
 
-/** Regras exibidas já na escolha dos períodos/recursos (F2); as demais aparecem ao salvar. */
-const REGRAS_PREVIA = ['RN1', 'RN3', 'RN4', 'RN5', 'RN6', 'RN8', 'RN9'];
+/**
+ * Regras verificadas no backend porque dependem de dados do servidor (agenda de outras
+ * reservas, disponibilidade de recursos). As regras RN1/RN3/RN4 dependem só do formulário
+ * e dos parâmetros de configuração, então são validadas localmente para feedback imediato.
+ */
+const REGRAS_SERVIDOR = ['RN5', 'RN6', 'RN8', 'RN9'];
 
 /** F1–F4 / RF10, RF15: inclusão, alteração e cancelamento de reserva. */
 @Component({
@@ -29,6 +33,7 @@ export class ReservaForm {
   protected readonly sessao = inject(Sessao);
   private readonly resumoErros = viewChild<ElementRef<HTMLElement>>('resumoErros');
   private readonly resumoSucesso = viewChild<ElementRef<HTMLElement>>('resumoSucesso');
+  private readonly form = viewChild<NgForm>('form');
 
   protected readonly STATUS = STATUS_ROTULO;
   protected readonly dataHora = dataHora;
@@ -43,10 +48,21 @@ export class ReservaForm {
     return d?.ambienteId != null && this.ambientes().length > 0 && !this.ambientes().some((a) => a.id === d.ambienteId);
   });
   protected readonly erros = signal<Erro[]>([]);
-  protected readonly errosPrevia = signal<Erro[]>([]);
+  /** Regras verificadas no backend (conflitos de agenda, disponibilidade de recursos). */
+  protected readonly errosServidor = signal<Erro[]>([]);
+  /** Regras verificadas no front (RN1/RN3/RN4): dependem só do formulário e da config. */
+  protected readonly errosLocais = signal<Erro[]>([]);
+  /** Todas as pendências da prévia (locais + servidor), para exibição no template. */
+  protected readonly errosPrevia = computed<Erro[]>(() => [...this.errosLocais(), ...this.errosServidor()]);
   protected readonly mensagem = signal('');
   protected readonly salvando = signal(false);
   protected readonly pronto = signal(false);
+  /** Config efetiva da unidade (RN3/RN4): antecedência mínima e faixa de horário. */
+  protected readonly config = signal<Config | null>(null);
+  /** Há uma verificação de prévia em andamento (chamada ao backend ainda sem resposta). */
+  protected readonly validando = signal(false);
+  /** Sequência das chamadas de prévia: só a resposta mais recente é aplicada (evita corrida). */
+  private previaSeq = 0;
 
   // Preenchimento assistido por IA (F-IA).
   protected readonly iaDisponivel = signal(false);
@@ -81,6 +97,12 @@ export class ReservaForm {
   constructor() {
     this.api.ambientes().subscribe((a) => this.ambientes.set(a));
     this.api.disposicoes().subscribe((d) => this.disposicoes.set(d));
+    // RN3/RN4: parâmetros efetivos da unidade para validação local.
+    this.api.config().subscribe((c) => {
+      this.config.set(c);
+      this.revalidarLocal();
+    });
+    // F-IA: descobre se o preenchimento assistido por IA está disponível.
     this.api.interpretacaoDisponivel().subscribe({
       next: (r) => this.iaDisponivel.set(r.disponivel),
       error: () => this.iaDisponivel.set(false),
@@ -88,7 +110,8 @@ export class ReservaForm {
     this.route.paramMap.subscribe((pm) => {
       const id = pm.get('id');
       this.erros.set([]);
-      this.errosPrevia.set([]);
+      this.errosLocais.set([]);
+      this.errosServidor.set([]);
       if (id) {
         this.carregarReserva(Number(id), this.route.snapshot.queryParamMap.get('salvo') === '1');
       } else {
@@ -279,14 +302,102 @@ export class ReservaForm {
 
   /** F2: verificação antecipada de conflitos a cada escolha de período ou recurso. */
   protected previa(): void {
+    // RN1/RN3/RN4: feedback imediato, sem round-trip ao backend.
+    this.revalidarLocal();
+
     if (this.somenteLeitura() || !this.periodos.some((p) => p.inicio && p.termino)) {
-      this.errosPrevia.set([]);
+      this.previaSeq++;
+      this.validando.set(false);
+      this.errosServidor.set([]);
       return;
     }
+    // RN5/RN6/RN8/RN9 dependem de dados do servidor. Enquanto não retorna, bloqueia o
+    // Salvar e descarta respostas antigas (evita corrida ao alternar períodos).
+    const seq = ++this.previaSeq;
+    this.validando.set(true);
     this.api.validar(this.montar(), this.detalhe()?.id ?? null).subscribe({
-      next: (es) => this.errosPrevia.set(es.filter((e) => REGRAS_PREVIA.includes(e.regra))),
-      error: () => this.errosPrevia.set([]),
+      next: (es) => {
+        if (seq !== this.previaSeq) {
+          return;
+        }
+        this.errosServidor.set(es.filter((e) => REGRAS_SERVIDOR.includes(e.regra)));
+        this.validando.set(false);
+      },
+      error: () => {
+        if (seq !== this.previaSeq) {
+          return;
+        }
+        // Falha na verificação: não libera o Salvar com base em estado desconhecido.
+        this.errosServidor.set([]);
+        this.validando.set(false);
+      },
     });
+  }
+
+  /**
+   * Validação local das regras que dependem só do formulário e da config (RN1/RN3/RN4).
+   * Produz os mesmos erros que o backend para feedback instantâneo; o servidor revalida
+   * tudo ao salvar (RN7), permanecendo a autoridade final.
+   */
+  private revalidarLocal(): void {
+    if (this.somenteLeitura()) {
+      this.errosLocais.set([]);
+      return;
+    }
+    const erros: Erro[] = [];
+    const cfg = this.config();
+
+    this.periodos.forEach((p, idx) => {
+      const n = idx + 1;
+      if (!p.inicio || !p.termino) {
+        // Campos obrigatórios já são sinalizados pela validação HTML; aqui só cobrimos
+        // a ordem início/término quando ambos estão preenchidos.
+        return;
+      }
+      const inicio = paraData(p.inicio);
+      const termino = paraData(p.termino);
+
+      // RN1: término posterior ao início.
+      if (termino.getTime() <= inicio.getTime()) {
+        erros.push({ regra: 'RN1', mensagem: `Período ${n}: o término deve ser posterior ao início.` });
+        return;
+      }
+
+      if (cfg) {
+        // RN3: início e término dentro da faixa de horário efetiva da unidade.
+        const hMin = cfg.unidadeHoraMin ?? cfg.horaMin;
+        const hMax = cfg.unidadeHoraMax ?? cfg.horaMax;
+        if (this.foraDaFaixa(inicio, hMin, hMax) || this.foraDaFaixa(termino, hMin, hMax)) {
+          erros.push({ regra: 'RN3', mensagem: `Período ${n}: início e término devem estar entre ${hMin} e ${hMax}.` });
+        }
+
+        // RN4: antecedência mínima. Períodos já gravados e inalterados não são cobrados de novo.
+        const limite = new Date(Date.now() + cfg.antecedenciaMin * 60_000);
+        if (!this.periodoOriginal(p) && inicio.getTime() < limite.getTime()) {
+          erros.push({
+            regra: 'RN4',
+            mensagem: `Período ${n}: o início exige antecedência mínima de ${cfg.antecedenciaMin} minutos (a partir de ${dataHora(isoDataHora(limite))}).`,
+          });
+        }
+      }
+    });
+
+    this.errosLocais.set(erros);
+  }
+
+  /** RN3: compara apenas a parte de horas:minutos contra a faixa "HH:mm[:ss]". */
+  private foraDaFaixa(d: Date, horaMin: string, horaMax: string): boolean {
+    const m = d.getHours() * 60 + d.getMinutes();
+    return m < minutos(horaMin) || m > minutos(horaMax);
+  }
+
+  /** RN4: período idêntico a um já gravado na reserva em edição não é recobrado de antecedência. */
+  private periodoOriginal(p: PeriodoForm): boolean {
+    const d = this.detalhe();
+    if (!d) {
+      return false;
+    }
+    return d.periodos.some((o) => o.inicio.substring(0, 16) === p.inicio && o.termino.substring(0, 16) === p.termino);
   }
 
   protected errosDoPeriodo(i: number): Erro[] {
@@ -298,8 +409,23 @@ export class ReservaForm {
     return this.errosPrevia().filter((e) => !this.periodos.some((_, i) => this.errosDoPeriodo(i).includes(e)));
   }
 
+  /**
+   * Bloqueia o envio enquanto houver pendências: campos obrigatórios/inválidos (validação HTML),
+   * quebras de regra de negócio na prévia (ex.: período no passado — RN4) ou verificação em andamento.
+   */
+  protected formInvalido(): boolean {
+    const f = this.form();
+    return (f != null && f.invalid === true) || this.errosPrevia().length > 0 || this.validando();
+  }
+
   /** RN7: o servidor refaz toda a verificação ao salvar. */
   protected salvar(): void {
+    // Validação no frontend: não envia ao backend se o formulário tiver pendências.
+    if (this.formInvalido()) {
+      this.form()?.control.markAllAsTouched();
+      setTimeout(() => this.resumoErros()?.nativeElement.focus());
+      return;
+    }
     this.salvando.set(true);
     this.erros.set([]);
     this.mensagem.set('');
