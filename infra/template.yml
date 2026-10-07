@@ -163,7 +163,7 @@ Resources:
                 Action: secretsmanager:GetSecretValue
                 Resource: !GetAtt DbCluster.MasterUserSecret.SecretArn
 
-  # Role da aplicacao: vazia por enquanto. As proximas fases acrescentam SQS e SES aqui.
+  # Role da aplicacao. As proximas fases acrescentam SQS e SES aqui.
   TaskRole:
     Type: AWS::IAM::Role
     Properties:
@@ -173,6 +173,20 @@ Resources:
           - Effect: Allow
             Principal: { Service: ecs-tasks.amazonaws.com }
             Action: sts:AssumeRole
+      Policies:
+        - PolicyName: bedrock-preenchimento-reserva
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # O modelo e um inference profile entre regioes (prefixo "us."): a permissao vale para o
+              # profile e para o modelo base nas regioes para as quais ele roteia.
+              - Effect: Allow
+                Action: bedrock:InvokeModel
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.anthropic.claude-haiku-4-5-20251001-v1:0"
+                  - !Sub "arn:${AWS::Partition}:bedrock:us-east-1::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0"
+                  - !Sub "arn:${AWS::Partition}:bedrock:us-east-2::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0"
+                  - !Sub "arn:${AWS::Partition}:bedrock:us-west-2::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0"
 
   # ---------------------------------------------------------------- API (ECS Fargate + ALB)
   ApiTaskDefinition:
@@ -204,6 +218,8 @@ Resources:
             # Mesmo comportamento do docker compose: dados de demonstracao e SNP/e-mail simulados.
             - { Name: SPRING_PROFILES_ACTIVE, Value: "local,seed" }
             - { Name: SNP_ENDPOINT, Value: "http://localhost:8080/mock-snp/pedidos" }
+            - { Name: BEDROCK_ENABLED, Value: "true" }
+            - { Name: BEDROCK_REGION, Value: !Ref AWS::Region }
           Secrets:
             - Name: DB_PASSWORD
               ValueFrom: !Sub "${DbCluster.MasterUserSecret.SecretArn}:password::"
