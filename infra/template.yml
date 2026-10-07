@@ -218,6 +218,9 @@ Resources:
             # Mesmo comportamento do docker compose: dados de demonstracao e SNP/e-mail simulados.
             - { Name: SPRING_PROFILES_ACTIVE, Value: "local,seed" }
             - { Name: SNP_ENDPOINT, Value: "http://localhost:8080/mock-snp/pedidos" }
+            # O navegador envia Origin (https://<cloudfront>) nos POST/PUT/DELETE e o Spring o compara com o
+            # Host do ALB; sem esta origem permitida a API responde 403 "Invalid CORS request".
+            - { Name: CORS_ORIGINS, Value: !Sub "https://${Distribution.DomainName}" }
             - { Name: BEDROCK_ENABLED, Value: "true" }
             - { Name: BEDROCK_REGION, Value: !Ref AWS::Region }
           Secrets:
