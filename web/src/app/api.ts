@@ -20,6 +20,16 @@ export interface SetorCadastro {
   id: number; descricao: string; email: string; emailsLista: string | null; ativo: boolean; ambientes: number; recursos: number;
 }
 export interface SetorInput { descricao: string; email: string; emailsLista: string | null; ativo: boolean; }
+export interface RecursoCadastro {
+  id: number; descricao: string; grupoId: number; grupo: string; grupoOrdem: number | null; limitado: boolean;
+  disponibilidade: number; iconeArquivo: string; unidadeId: number | null; ativo: boolean; setores: number; ambientes: number;
+}
+export interface RecursoInput {
+  descricao: string; grupoId: number | null; limitado: boolean; disponibilidade: number | null; iconeArquivo: string | null;
+  unidadeId: number | null; ativo: boolean;
+}
+export interface GrupoRecurso { id: number; descricao: string; ordem: number | null; ativo: boolean; }
+export interface AmbienteDoRecurso { ambienteId: number; ambiente: string; ambienteAtivo: boolean; unidadeId: number; }
 export interface VinculoSetor { setorId: number; setor: string; setorAtivo: boolean; codServicoSnp: string | null; }
 export interface VinculoSetorInput { setorId: number | null; codServicoSnp: string | null; }
 export interface Disposicao { id: number; descricao: string; iconeArquivo: string; }
@@ -111,6 +121,21 @@ export class Api {
   setoresDoAmbiente(id: number) { return this.http.get<VinculoSetor[]>(`/api/ambientes/${id}/setores`); }
   salvarSetoresDoAmbiente(id: number, vs: VinculoSetorInput[]) {
     return this.http.put<VinculoSetor[]>(`/api/ambientes/${id}/setores`, vs);
+  }
+
+  /** F9/RF06–RF08: cadastro de recursos e seus vínculos; somente administrador. */
+  recursosCadastro() { return this.http.get<RecursoCadastro[]>('/api/recursos/cadastro'); }
+  iconesRecurso() { return this.http.get<string[]>('/api/recursos/icones'); }
+  gruposRecurso() { return this.http.get<GrupoRecurso[]>('/api/grupos-recurso'); }
+  criarRecurso(r: RecursoInput) { return this.http.post<RecursoCadastro>('/api/recursos', r); }
+  alterarRecurso(id: number, r: RecursoInput) { return this.http.put<RecursoCadastro>(`/api/recursos/${id}`, r); }
+  setoresDoRecurso(id: number) { return this.http.get<VinculoSetor[]>(`/api/recursos/${id}/setores`); }
+  salvarSetoresDoRecurso(id: number, vs: VinculoSetorInput[]) {
+    return this.http.put<VinculoSetor[]>(`/api/recursos/${id}/setores`, vs);
+  }
+  ambientesDoRecurso(id: number) { return this.http.get<AmbienteDoRecurso[]>(`/api/recursos/${id}/ambientes`); }
+  salvarAmbientesDoRecurso(id: number, ambienteIds: number[]) {
+    return this.http.put<AmbienteDoRecurso[]>(`/api/recursos/${id}/ambientes`, ambienteIds);
   }
   disposicoes() { return this.http.get<Disposicao[]>('/api/disposicoes'); }
   recursos(ambienteId: number | null) {

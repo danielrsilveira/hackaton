@@ -3,20 +3,27 @@ package br.mp.mpf.sisgares.infra;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 
 import br.mp.mpf.sisgares.dominio.AmbienteInfo;
 import br.mp.mpf.sisgares.dominio.DadosAmbiente;
+import br.mp.mpf.sisgares.dominio.DadosRecurso;
 import br.mp.mpf.sisgares.dominio.DadosValidacao;
+import br.mp.mpf.sisgares.dominio.GrupoInfo;
+import br.mp.mpf.sisgares.dominio.RecursoResumo;
+import br.mp.mpf.sisgares.dominio.UsoRecurso;
 import br.mp.mpf.sisgares.dominio.PeriodoOcupado;
 import br.mp.mpf.sisgares.dominio.RecursoInfo;
 
 @Component
-public class JdbcDadosValidacao implements DadosValidacao, DadosAmbiente {
+public class JdbcDadosValidacao implements DadosValidacao, DadosAmbiente, DadosRecurso {
 
     private final JdbcClient jdbc;
 
@@ -94,6 +101,33 @@ public class JdbcDadosValidacao implements DadosValidacao, DadosAmbiente {
     public List<AmbienteInfo> ambientes(long unidadeId) {
         return jdbc.sql("select id, descricao, id_pai, ativo, unidade_id from ambiente where unidade_id = :uni")
                 .param("uni", unidadeId).query(AmbienteInfo.class).list();
+    }
+
+    @Override
+    public List<RecursoResumo> recursos(long unidadeId) {
+        return jdbc.sql("""
+                select id, descricao, grec_id as grupo_id, limitado, disponibilidade, ativo, unidade_id
+                  from recurso where unidade_id is null or unidade_id = :uni""")
+                .param("uni", unidadeId).query(RecursoResumo.class).list();
+    }
+
+    @Override
+    public Map<Long, GrupoInfo> grupos() {
+        return jdbc.sql("select id, descricao, ativo from grupo_recurso").query(GrupoInfo.class).list().stream()
+                .collect(Collectors.toMap(GrupoInfo::id, Function.identity()));
+    }
+
+    @Override
+    public List<UsoRecurso> usosNaoTranscorridos(long recursoId, LocalDateTime agora) {
+        return jdbc.sql("""
+                select r.id as reserva_id, r.unidade_id, r.ambi_id as ambiente_id, s.qtd as quantidade,
+                       p.dthr_inicio as inicio, p.dthr_termino as termino
+                  from solicitacao s
+                  join reserva r on r.id = s.rese_id
+                  join periodo_reserva p on p.rese_id = r.id
+                 where s.recu_id = :recu and not r.cancelada and p.dthr_termino > :agora
+                 order by p.dthr_inicio""")
+                .param("recu", recursoId).param("agora", agora).query(UsoRecurso.class).list();
     }
 
     @Override
