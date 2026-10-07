@@ -59,6 +59,11 @@
   .tela figcaption { padding: 8px 14px; font-size: 15px; font-weight: 600; color: var(--tinta); display: flex; align-items: center; gap: 8px; }
   .tela figcaption small { font-weight: 500; font-size: 13px; color: var(--suave); }
   .novo { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; background: var(--sucesso-50); color: var(--sucesso); border: 1px solid #abefc6; border-radius: 999px; padding: 1px 8px; }
+  .ia { height: 205px; padding: 16px 20px; display: flex; flex-direction: column; justify-content: center; gap: 10px; border-bottom: 1px solid var(--linha); background: linear-gradient(180deg, #f0fdf9 0%, #fff 100%); }
+  .ia-texto { font-size: 17px; line-height: 1.4; font-style: italic; color: var(--tinta); background: #fff; border: 1px solid #99f6e0; border-radius: 10px; padding: 10px 14px; }
+  .ia-seta { font-size: 13px; font-weight: 700; color: #0f766e; }
+  .ia-campos { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+  .ia-campos li { font-size: 13px; font-weight: 600; background: #ccfbef; color: #0f5132; border: 1px solid #5eead4; border-radius: 999px; padding: 3px 12px; }
   .falta { margin-top: 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .falta b { font-size: 14px; color: var(--alerta); margin-right: 4px; }
   .falta span { font-size: 13px; background: var(--alerta-50); border: 1px solid #fedf89; border-radius: 999px; padding: 3px 11px; color: var(--texto); }
@@ -84,14 +89,14 @@
     <h1>SISGARES</h1>
     <p class="sub">Reserva de ambientes, recursos e serviços.</p>
     <div class="numeros">
-      <div class="numero"><b>15</b><span>regras de negócio</span></div>
-      <div class="numero"><b>63</b><span>testes das regras</span></div>
+      <div class="numero"><b>16</b><span>regras de negócio</span></div>
+      <div class="numero"><b>72</b><span>testes das regras</span></div>
       <div class="numero"><b>3</b><span>perfis de acesso</span></div>
     </div>
     <ul class="funcs" aria-label="Funcionalidades">
       <li>✓ Reserva</li><li>✓ Conflitos</li><li>✓ Quantidade</li><li>✓ Alterar e cancelar</li>
       <li>✓ E-mail por setor</li><li>✓ SNP</li><li>✓ Painel de horários</li><li>✓ Painel do atendente</li>
-      <li>✓ Configurações</li><li class="parcial">◐ Cadastros (ambientes prontos)</li>
+      <li>✓ Configurações</li><li>✓ Preenchimento por IA</li><li class="parcial">◐ Cadastros (setores e ambientes prontos)</li>
     </ul>
   </div>
   <div class="dir">
@@ -112,7 +117,7 @@
   <div class="cartao diagrama">
     <svg viewBox="0 0 1160 470" role="img" aria-labelledby="dg-t dg-d" xmlns="http://www.w3.org/2000/svg" font-family="Inter, 'Segoe UI', system-ui, Arial, sans-serif">
       <title id="dg-t">Diagrama da arquitetura do SISGARES na AWS</title>
-      <desc id="dg-d">O usuário acessa o CloudFront por HTTPS. O CloudFront serve o site Angular a partir de um bucket S3 privado e encaminha as rotas /api e /mock-snp para um Application Load Balancer. O balanceador envia o tráfego para uma tarefa ECS Fargate com Spring Boot, que usa um banco Aurora Serverless v2 PostgreSQL. A imagem vem do ECR, a senha do banco do Secrets Manager e os logs vão para o CloudWatch Logs. SES e SQS estão previstos para as próximas fases.</desc>
+      <desc id="dg-d">O usuário acessa o CloudFront por HTTPS. O CloudFront serve o site Angular a partir de um bucket S3 privado e encaminha as rotas /api e /mock-snp para um Application Load Balancer. O balanceador envia o tráfego para uma tarefa ECS Fargate com Spring Boot, que usa um banco Aurora Serverless v2 PostgreSQL. A imagem vem do ECR, a senha do banco do Secrets Manager e os logs vão para o CloudWatch Logs. A tarefa também chama o Amazon Bedrock (Claude Haiku 4.5) para preencher a reserva a partir de um texto. SES e SQS estão previstos para as próximas fases.</desc>
       <defs>
         <marker id="seta" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
           <path d="M0,0 L10,5 L0,10 z" fill="#334155"/>
@@ -202,6 +207,15 @@
         <text x="1008" y="430" font-size="12" fill="#475569">retenção de 14 dias</text>
       </g>
 
+      <!-- Bedrock -->
+      <g>
+        <rect x="860" y="30" width="285" height="84" rx="10" fill="#fff" stroke="#cbd5e1"/>
+        <rect x="860" y="30" width="6" height="84" rx="3" fill="#01a88d"/>
+        <text x="878" y="56" font-size="16" font-weight="700" fill="#0f172a">Amazon Bedrock</text>
+        <text x="878" y="76" font-size="12" fill="#475569">Claude Haiku 4.5 · Converse API</text>
+        <text x="878" y="94" font-size="11.5" fill="#067647" font-weight="600">Permissão só na role da tarefa</text>
+      </g>
+
       <!-- Próximas fases (tracejado) -->
       <text x="190" y="362" font-size="12" font-weight="700" fill="#64748b">Próximas fases</text>
       <g>
@@ -224,6 +238,7 @@
         <line x1="340" y1="236" x2="428" y2="236" marker-end="url(#seta)"/>
         <line x1="595" y1="236" x2="648" y2="236" marker-end="url(#seta)"/>
         <line x1="840" y1="236" x2="918" y2="236" marker-end="url(#seta)"/>
+        <polyline points="800,190 800,72 858,72" marker-end="url(#seta)"/>
         <line x1="690" y1="370" x2="710" y2="292" marker-end="url(#seta)" stroke-dasharray="5 3"/>
         <line x1="880" y1="370" x2="800" y2="292" marker-end="url(#seta)" stroke-dasharray="5 3"/>
         <line x1="1060" y1="370" x2="830" y2="292" marker-end="url(#seta)" stroke-dasharray="5 3"/>
@@ -233,6 +248,7 @@
       <g font-size="11.5" fill="#334155">
         <text x="159" y="228" text-anchor="middle">HTTPS</text>
         <text x="312" y="62">site estático (/*)</text>
+        <text x="792" y="132" text-anchor="end">InvokeModel</text>
         <text x="372" y="215" text-anchor="middle" font-size="10.5">/api/*</text>
         <text x="372" y="227" text-anchor="middle" font-size="10.5">/mock-snp/*</text>
         <text x="621" y="228" text-anchor="middle">:8080</text>
@@ -243,7 +259,7 @@
       </g>
     </svg>
   </div>
-  <div class="rodape"><span>Fase 1 · CloudFront → ALB em HTTP, 1 tarefa, banco em uma AZ</span></div>
+  <div class="rodape"><span>Fase 1 · CloudFront → ALB em HTTP, 1 tarefa, banco em uma AZ · Bedrock em us-east-1 via inference profile</span></div>
 </section>
 
 <!-- ======================= SLIDE 3 ======================= -->
@@ -267,8 +283,14 @@
       <figcaption>Painel do atendente, por data <small>reservas, recursos e SNP</small></figcaption>
     </figure>
     <figure class="cartao tela">
-      <img src="img/ambientes.png" alt="Cadastro de ambientes: lista com a hierarquia do Auditório e o formulário de edição.">
-      <figcaption>Cadastro de ambientes com hierarquia <span class="novo">Novo</span></figcaption>
+      <div class="ia" role="img" aria-label="Exemplo de texto livre que o Bedrock transforma nos campos da reserva: ambiente, finalidade, participantes, período e recursos.">
+        <p class="ia-texto">“Reunião do GT de dados amanhã das 14h às 16h na sala de reuniões, 12 pessoas, com projetor e café.”</p>
+        <p class="ia-seta" aria-hidden="true">↓ Bedrock · Claude Haiku 4.5</p>
+        <ul class="ia-campos" aria-hidden="true">
+          <li>Ambiente</li><li>Finalidade</li><li>Participantes</li><li>Período</li><li>Recursos</li>
+        </ul>
+      </div>
+      <figcaption>Preenchimento por IA <span class="novo">Novo</span> <small>nada é salvo sem conferência</small></figcaption>
     </figure>
   </div>
 
