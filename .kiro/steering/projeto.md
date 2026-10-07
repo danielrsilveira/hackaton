@@ -45,8 +45,8 @@ Regra de ouro: `docker compose up` (sem flags, sem `.env`) deve sempre subir o s
 - Nunca versionar credenciais nem `.env`.
 
 ## AWS
-- Todo comando AWS CLI, SAM ou CloudFormation usa `--profile workshop` e a região `us-east-1`; código SDK usa o profile `workshop`.
-- O deploy será via CloudFormation (ainda não implementado). Não criar recursos na conta sem combinar com a equipe.
+- Todo comando AWS CLI, SAM ou CloudFormation usa `--profile hackaton` e a região `us-east-1`; código SDK usa o profile `hackaton`.
+- O deploy é via CloudFormation: stack `sisgares`, template em `infra/template.yml`, passo a passo em `infra/README.md`. Não criar recursos na conta sem combinar com a equipe.
 
 ## Git
 - Branch por feature (`feat/<area>-<descricao>`), PR para `main`, sem commits diretos na `main`.

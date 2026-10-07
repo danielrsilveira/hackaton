@@ -17,7 +17,10 @@ import org.springframework.web.bind.annotation.RestController;
 import br.mp.mpf.sisgares.dominio.AmbienteInput;
 import br.mp.mpf.sisgares.dominio.VinculoSetorInput;
 import br.mp.mpf.sisgares.infra.CadastroRepository.VinculoSetor;
+import br.mp.mpf.sisgares.dominio.SetorInput;
+import br.mp.mpf.sisgares.infra.CadastroRepository.SetorCadastro;
 import br.mp.mpf.sisgares.servico.AmbienteService;
+import br.mp.mpf.sisgares.servico.SetorService;
 
 import br.mp.mpf.sisgares.infra.CadastroRepository;
 import br.mp.mpf.sisgares.infra.CadastroRepository.Ambiente;
@@ -35,11 +38,14 @@ public class CadastroController {
     private final CadastroRepository cadastros;
     private final UsuarioAtual usuarios;
     private final AmbienteService ambientes;
+    private final SetorService setoresService;
 
-    public CadastroController(CadastroRepository cadastros, UsuarioAtual usuarios, AmbienteService ambientes) {
+    public CadastroController(CadastroRepository cadastros, UsuarioAtual usuarios, AmbienteService ambientes,
+            SetorService setoresService) {
         this.cadastros = cadastros;
         this.usuarios = usuarios;
         this.ambientes = ambientes;
+        this.setoresService = setoresService;
     }
 
     /** Lista de usuários fictícios para o seletor de perfil da demonstração. */
@@ -102,6 +108,27 @@ public class CadastroController {
     @GetMapping("/setores")
     public List<Setor> setores() {
         return cadastros.setores();
+    }
+
+    /** F9/RF01: setores da unidade, inclusive inativos, com contagem de vínculos (somente administrador). */
+    @GetMapping("/setores/cadastro")
+    public List<SetorCadastro> setoresCadastro(@RequestHeader(value = UsuarioAtual.HEADER, required = false) Long uid) {
+        return setoresService.listar(usuarios.admin(uid).unidadeId());
+    }
+
+    /** F9/RF01: somente administrador. */
+    @PostMapping("/setores")
+    @ResponseStatus(HttpStatus.CREATED)
+    public SetorCadastro criarSetor(@RequestBody SetorInput in,
+            @RequestHeader(value = UsuarioAtual.HEADER, required = false) Long uid) {
+        return setoresService.criar(usuarios.admin(uid).unidadeId(), in);
+    }
+
+    /** F9/RF01: somente administrador. Inativar = enviar {@code ativo: false}. */
+    @PutMapping("/setores/{id}")
+    public SetorCadastro alterarSetor(@PathVariable long id, @RequestBody SetorInput in,
+            @RequestHeader(value = UsuarioAtual.HEADER, required = false) Long uid) {
+        return setoresService.alterar(id, usuarios.admin(uid).unidadeId(), in);
     }
 
     @GetMapping("/config")
