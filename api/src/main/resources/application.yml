@@ -25,6 +25,11 @@ spring:
 app:
   snp:
     endpoint: ${SNP_ENDPOINT:http://localhost:8080/mock-snp/pedidos}
+  bedrock:
+    # Interpretação da reserva em linguagem natural. Vazio desabilita o recurso (o front esconde o campo).
+    enabled: ${BEDROCK_ENABLED:true}
+    region: ${BEDROCK_REGION:us-east-1}
+    model-id: ${BEDROCK_MODEL_ID:us.anthropic.claude-haiku-4-5-20251001-v1:0}
   cors:
     allowed-origins: ${CORS_ORIGINS:http://localhost:4200}
   # Leitura dos CSV de seed (classpath:seed/*.csv) deve usar UTF-8 explícito.
