@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { Ambiente, AmbienteDoRecurso, Api, Erro, GrupoRecurso, RecursoCadastro, Sessao, errosDaResposta } from '../api';
 import { arvoreAmbientes } from '../arvore-ambientes';
 import { Icone } from '../icone';
+import { iconeUrl } from '../icones-recurso';
 import { SetoresVinculados } from '../setores-vinculados';
 
 /**
@@ -48,7 +49,7 @@ import { SetoresVinculados } from '../setores-vinculados';
                       <tr [class.selecionado]="editandoId() === r.id">
                         <td>
                           <span class="nome">
-                            <img [src]="'/img/recurso/' + r.iconeArquivo" alt="" width="20" height="20" />
+                            <img [src]="iconeUrl(r.iconeArquivo)" alt="" width="20" height="20" />
                             {{ r.descricao }}
                           </span>
                           <span class="ajuda">
@@ -100,12 +101,25 @@ import { SetoresVinculados } from '../setores-vinculados';
                 <div class="grade-icones">
                   @for (i of icones(); track i; let n = $index) {
                     <label class="opcao-icone" [class.marcado]="icone === i" [title]="i">
-                      <input type="radio" name="icone" [value]="i" [(ngModel)]="icone" />
-                      <img [src]="'/img/recurso/' + i" alt="" width="28" height="28" />
+                      <input type="radio" name="icone" [value]="i" [attr.data-icone]="i" [(ngModel)]="icone" />
+                      <img [src]="iconeUrl(i)" alt="" width="28" height="28" />
                       <span class="visualmente-oculto">Ícone {{ n + 1 }} ({{ i }})</span>
                     </label>
                   }
+                  <button type="button" class="secundario novo-icone" (click)="arquivoIcone.click()"
+                          [disabled]="enviandoIcone()" aria-describedby="h-icone">
+                    <app-icone nome="mais" /> {{ enviandoIcone() ? 'Enviando…' : 'Novo ícone' }}
+                  </button>
                 </div>
+                <label for="r-arquivo-icone" class="visualmente-oculto">Arquivo do novo ícone</label>
+                <input #arquivoIcone id="r-arquivo-icone" type="file" class="visualmente-oculto" tabindex="-1"
+                       accept="image/png,image/jpeg,image/gif" (change)="enviarIcone(arquivoIcone)" />
+                <span id="h-icone" class="ajuda">Novo ícone: PNG, JPEG ou GIF, até 100 KB, de 16 a 512 pixels (de preferência quadrado).</span>
+                @if (errosIcone().length) {
+                  <div class="erros" role="alert"><app-icone nome="alerta" [tamanho]="20" />
+                    <ul>@for (e of errosIcone(); track $index) { <li>{{ e.mensagem }}</li> }</ul></div>
+                }
+                @if (okIcone()) { <p class="sucesso" role="status"><app-icone nome="ok" [tamanho]="20" /> Ícone enviado e selecionado.</p> }
               </fieldset>
 
               <label class="interruptor" for="r-limitado">
@@ -206,6 +220,8 @@ import { SetoresVinculados } from '../setores-vinculados';
     .opcao-icone.marcado::after { content: '✓'; position: absolute; top: -0.5rem; right: -0.45rem; font-size: 0.7rem;
       background: var(--primaria); color: #fff; border-radius: 50%; width: 1rem; height: 1rem; display: grid; place-items: center; }
     .opcao-icone:has(input:focus-visible) { box-shadow: var(--foco); }
+    .opcao-icone img { object-fit: contain; }
+    .novo-icone { min-height: 2.9rem; font-size: 0.86rem; }
     .ajuda.topo { margin: -0.5rem 0 1rem; }
     .lista-amb { list-style: none; margin: 0; padding: 0; max-height: 18rem; overflow-y: auto; }
     .lista-amb li { padding-block: 0.3rem; }
@@ -215,6 +231,7 @@ import { SetoresVinculados } from '../setores-vinculados';
   `,
 })
 export class Recursos {
+  protected readonly iconeUrl = iconeUrl;
   private readonly api = inject(Api);
   protected readonly sessao = inject(Sessao);
   private readonly descricaoInput = viewChild<ElementRef<HTMLInputElement>>('descricaoInput');
@@ -235,6 +252,11 @@ export class Recursos {
   protected disponibilidade: number | null = null;
   protected unidadeId: number | null = null;
   protected ativo = true;
+
+  // RF06: envio de novo ícone
+  protected readonly enviandoIcone = signal(false);
+  protected readonly errosIcone = signal<Erro[]>([]);
+  protected readonly okIcone = signal(false);
 
   // RF08: ambientes do recurso em edição
   private readonly ambientes = signal<Ambiente[]>([]);
@@ -298,6 +320,7 @@ export class Recursos {
     this.ativo = true;
     this.erros.set([]);
     this.ok.set('');
+    this.limparIcone();
     this.focarDescricao();
   }
 
@@ -312,8 +335,42 @@ export class Recursos {
     this.ativo = r.ativo;
     this.erros.set([]);
     this.ok.set('');
+    this.limparIcone();
     this.carregarAmbientes(r.id);
     this.focarDescricao();
+  }
+
+  private limparIcone(): void {
+    this.errosIcone.set([]);
+    this.okIcone.set(false);
+  }
+
+  /** RF06: envia o arquivo escolhido; o novo ícone entra na grade já selecionado. */
+  protected enviarIcone(campo: HTMLInputElement): void {
+    const arquivo = campo.files?.[0];
+    campo.value = ''; // permite escolher o mesmo arquivo de novo após um erro
+    if (!arquivo) return;
+    this.errosIcone.set([]);
+    this.okIcone.set(false);
+    if (arquivo.size > 100 * 1024) {
+      this.errosIcone.set([{ regra: 'RF06', mensagem: 'O ícone deve ter até 100 KB.' }]);
+      return;
+    }
+    this.enviandoIcone.set(true);
+    this.api.enviarIconeRecurso(arquivo).subscribe({
+      next: ({ arquivo: nome }) => {
+        this.enviandoIcone.set(false);
+        this.icones.update((is) => [...is, nome]);
+        this.icone = nome;
+        this.okIcone.set(true);
+        // Leva o foco ao ícone recém-criado, já marcado.
+        setTimeout(() => (document.querySelector(`input[data-icone="${nome}"]`) as HTMLInputElement | null)?.focus());
+      },
+      error: (e) => {
+        this.enviandoIcone.set(false);
+        this.errosIcone.set(errosDaResposta(e));
+      },
+    });
   }
 
   protected salvar(): void {

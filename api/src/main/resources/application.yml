@@ -20,6 +20,11 @@ spring:
       hibernate.jdbc.time_zone: America/Fortaleza
   flyway:
     enabled: true
+  servlet:
+    multipart:
+      # Só o envio de ícones (até 100 KB) usa upload; o limite corta arquivos grandes antes de ler.
+      max-file-size: 200KB
+      max-request-size: 256KB
   jackson:
     time-zone: America/Fortaleza
 app:

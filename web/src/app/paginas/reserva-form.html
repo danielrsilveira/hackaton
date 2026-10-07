@@ -226,7 +226,7 @@
               @for (r of g.itens; track r.id) {
                 <li class="tile" [class.marcado]="sel(r).marcado">
                   <input type="checkbox" [id]="'rec-' + r.id" [name]="'rec' + r.id" [ngModel]="sel(r).marcado" (ngModelChange)="marcar(r, $event)" />
-                  <span class="tile-icone"><img [src]="'/img/recurso/' + r.iconeArquivo" alt="" width="22" height="22" /></span>
+                  <span class="tile-icone"><img [src]="iconeUrl(r.iconeArquivo)" alt="" width="22" height="22" /></span>
                   <label [for]="'rec-' + r.id">
                     {{ r.descricao }}
                     @if (r.limitado) { <span class="ajuda">{{ r.disponibilidade }} na unidade</span> }

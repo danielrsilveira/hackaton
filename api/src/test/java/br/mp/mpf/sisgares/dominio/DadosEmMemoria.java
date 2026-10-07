@@ -42,6 +42,15 @@ class DadosEmMemoria implements DadosValidacao, DadosAmbiente, DadosRecurso {
         return gruposPorId;
     }
 
+    final Set<String> iconesEnviados = new HashSet<>();
+
+    @Override
+    public Set<String> icones() {
+        Set<String> r = new HashSet<>(IconesRecurso.DISPONIVEIS);
+        r.addAll(iconesEnviados);
+        return r;
+    }
+
     /** Nos testes os usos não distinguem recurso: cada cenário pede um só. */
     @Override
     public List<UsoRecurso> usosNaoTranscorridos(long recursoId, LocalDateTime agora) {
