@@ -140,7 +140,7 @@ Os mesmos cinco usuários e perfis valem no modo `cognito` (o perfil sai da tabe
 | F6 | Pedido automático no SNP quando o vínculo tem código de serviço | ✅ (simulado) |
 | F7 | Painel do solicitante: grade de datas por horários de 30 min, com horários livres clicáveis | ✅ |
 | F8 | Painel do atendente: cards por data com horário, finalidade, solicitante, recursos e SNP | ✅ |
-| F9 | Telas de cadastro das tabelas básicas (setores, ambientes, disposições, grupos, recursos e vínculos) | ⏳ setores, ambientes (com hierarquia) e setores notificados por ambiente prontos; demais cadastros pendentes |
+| F9 | Telas de cadastro das tabelas básicas (setores, ambientes, disposições, grupos, recursos e vínculos) | ⏳ setores, ambientes (com hierarquia), recursos e todos os vínculos prontos; disposições e grupos pendentes |
 | F10 | Configuração de antecedência mínima, faixa de horário (global e por unidade) e endpoint do SNP | ✅ |
 
 | Verificação antecipada de conflitos (RN5) | Painel do atendente (F8) |
@@ -173,6 +173,8 @@ As regras ficam em uma classe pura e testável ([`ReservaValidator`](api/src/mai
 | RF01 | Cadastro de setores (regras desta solução): descrição única entre os ativos da unidade; caixa postal padrão obrigatória e válida; lista de e-mails opcional, validada e sem repetição, que substitui a padrão; inativar sempre é permitido (o setor deixa de ser notificado e os vínculos ficam) |
 | RF02 | Cadastro de ambientes (regras desta solução): descrição única entre os ativos; pai ativo da mesma unidade e sem ciclo; inativar só sem filhos ativos e sem reservas previstas ou em andamento; mudar o pai é bloqueado (RN6) se criar conflito entre reservas já gravadas; reserva só em ambiente ativo da unidade |
 | RF03 | Setores do ambiente (regras desta solução): setor da unidade, sem repetição; setor inativo não entra em vínculo novo, mas um vínculo antigo pode ser mantido; código SNP opcional, até 50 caracteres e sem espaços |
+| RF06 | Cadastro de recursos (regras desta solução): descrição única entre os ativos oferecidos na unidade; grupo ativo; ícone dentre os disponíveis; oferecido em todas as unidades ou só na do administrador; limitado com 1 a 9999 unidades. Com reservas previstas ou em andamento que pedem o recurso, bloqueia inativar, restringir a uma unidade onde elas não estão (RN9) e reduzir a disponibilidade abaixo do que já foi pedido no mesmo horário (RN8) |
+| RF07/RF08 | Setores do recurso: mesmas regras da RF03. Ambientes do recurso: da unidade, sem repetição, inativo só se já vinculado; restringir é bloqueado (RN9) se reservas futuras pedem o recurso em outro ambiente ou sem ambiente; lista vazia tira a restrição |
 
 Fórmula de conflito (RN5/RN6), aplicada ao ambiente, aos seus ancestrais e aos seus descendentes:
 
@@ -198,7 +200,8 @@ A carga inicial cria três reservas relativas à data da primeira subida (D1 = p
 6. Em "Minhas reservas", abra uma reserva antiga: a edição fica bloqueada (transcorrida).
 7. Configurações (Carla): defina a faixa da unidade como 08:00–18:00 e veja a RN3 bloquear um período às 19:00.
 8. Setores (Carla): crie um setor com uma lista de e-mails; ele já aparece para vínculo em "Ambientes". Inative-o e ele some das opções e das notificações.
-9. Ambientes (Carla): tente inativar o Auditório (Parte A) → bloqueado pela reserva #900001. Crie um ambiente filho do Auditório e veja-o na árvore e no seletor da nova reserva. Em "Setores notificados" desse ambiente, vincule a SEART com o código `TI-0303`: uma reserva nele gera e-mail para a SEART e um pedido SNP.
+9. Recursos (Carla): tente reduzir o Projetor Multimídia Portátil para 1 depois de reservar outro projetor em D1 às 15:00 → bloqueado (RN8, junto com a #900003). Restrinja o projetor ao Auditório → bloqueado (RN9: a #900003 é na Sala do 9º andar).
+10. Ambientes (Carla): tente inativar o Auditório (Parte A) → bloqueado pela reserva #900001. Crie um ambiente filho do Auditório e veja-o na árvore e no seletor da nova reserva. Em "Setores notificados" desse ambiente, vincule a SEART com o código `TI-0303`: uma reserva nele gera e-mail para a SEART e um pedido SNP.
 
 Códigos de serviço SNP fictícios (os CSV não têm esse campo): SEART × Projetor Portátil `TI-0101`, SEART × Notebook `TI-0102`, SEART × Videoconferência `TI-0202`, SESOT × Auditório (Completo) `SEG-0401`. A copa (água e café) gera só e-mail.
 
@@ -214,6 +217,7 @@ Códigos de serviço SNP fictícios (os CSV não têm esse campo): SEART × Proj
 
 - **Salvar uma reserva:** a API revalida tudo de forma serializada e grava numa transação. Em seguida monta um e-mail por setor, comparando campo a campo com a versão anterior, e chama o endpoint do SNP configurado. Localmente esse endpoint é um simulador dentro da própria API. Se o SNP falhar, a reserva continua gravada.
 - **Validação antecipada:** o formulário chama `POST /api/reservas/validar` a cada mudança, sem gravar nada.
+- **Cadastro de recursos:** `GET /api/recursos/cadastro`, `POST /api/recursos`, `PUT /api/recursos/{id}`, `GET`/`PUT /api/recursos/{id}/setores` e `GET`/`PUT /api/recursos/{id}/ambientes`, mais `GET /api/recursos/icones` e `GET /api/grupos-recurso`, só para o administrador. A lista da reserva (`GET /api/recursos?ambienteId=`) não mudou. Disponibilidade, unidade e ambientes alimentam RN8/RN9, então a gravação usa a mesma serialização das reservas. Os ícones válidos ficam em `IconesRecurso` e precisam acompanhar os arquivos de `web/public/img/recurso`.
 - **Cadastro de setores:** `GET /api/setores/cadastro` (inclui inativos e conta os vínculos), `POST /api/setores` e `PUT /api/setores/{id}`, só para o administrador e só para setores da própria unidade. Sem exclusão: notificações, vínculos e atendentes referenciam o setor.
 - **Cadastro de ambientes:** `GET /api/ambientes?todos=true`, `POST /api/ambientes` e `PUT /api/ambientes/{id}`, só para o administrador. Não há exclusão (reservas e vínculos referenciam o ambiente): inativa-se com `ativo: false`. A gravação usa a mesma serialização das reservas, porque a hierarquia alimenta a RN6. Os setores notificados ficam em `GET`/`PUT /api/ambientes/{id}/setores`; o `PUT` substitui a lista inteira. A mudança vale para as próximas notificações: reservas já gravadas avisam os novos setores quando forem alteradas ou canceladas.
 - **Modelo de dados:** [`V1__init.sql`](api/src/main/resources/db/migration/V1__init.sql), versionado com Flyway. Os dados vêm dos CSV de [`docs/dados`](docs/dados).
@@ -280,7 +284,7 @@ As convenções da equipe (migrations, padrão de erros, acessibilidade, Git, AW
 ## Limitações e próximos passos
 
 - **Autenticação em produção:** o modo `cognito` está implementado e a stack `infra/cognito.yaml` (`sisgares-auth`) já foi criada na conta `hackaton`, com os 5 usuários de teste. O fluxo foi testado com emissor falso e a stack responde (JWKS e `/oauth2/authorize`), mas falta validar o login completo no navegador contra o Cognito real e definir o `AppUrls` do CloudFront. Também ficam para depois: cabeçalho `Content-Security-Policy` no CloudFront/nginx e proteção WAF no Managed Login. O modo `simulado` é só para desenvolvimento local e a API recusa subir com ele fora do profile `local`.
-- **F9 parcial:** setores, ambientes e os setores notificados por ambiente (com código SNP) têm cadastro. Disposições, grupos, recursos e os vínculos de recursos (setor × recurso, recurso × ambiente) ainda vêm só da carga inicial.
+- **F9 parcial:** setores, ambientes, recursos e todos os vínculos (setor × ambiente, setor × recurso e recurso × ambiente) têm cadastro. Disposições e grupos de recurso ainda vêm só da carga inicial. O administrador de uma unidade também edita os recursos oferecidos em todas as unidades.
 - **Reservas geradas:** não há CSV de reservas. Finalidade e solicitante foram gerados com dados fictícios, e a carga não passa pelo validador, o que pode deixar conflitos históricos.
 - **RN8:** soma as quantidades de qualquer reserva que cruze o período, sem calcular o pico dentro do intervalo.
 - **Concorrência:** a serialização é em memória e serve para uma instância. Com várias, usar `pg_advisory_xact_lock`.

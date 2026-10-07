@@ -231,6 +231,9 @@ Resources:
             - { Name: AUTH_ISSUER_URI, Value: !Ref AuthIssuerUri }
             - { Name: AUTH_CLIENT_ID, Value: !Ref AuthClientId }
             - { Name: SNP_ENDPOINT, Value: "http://localhost:8080/mock-snp/pedidos" }
+            # O navegador envia Origin (https://<cloudfront>) nos POST/PUT/DELETE e o Spring o compara com o
+            # Host do ALB; sem esta origem permitida a API responde 403 "Invalid CORS request".
+            - { Name: CORS_ORIGINS, Value: !Sub "https://${Distribution.DomainName}" }
             - { Name: BEDROCK_ENABLED, Value: "true" }
             - { Name: BEDROCK_REGION, Value: !Ref AWS::Region }
           Secrets:

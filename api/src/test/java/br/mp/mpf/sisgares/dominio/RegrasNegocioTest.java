@@ -639,4 +639,143 @@ class RegrasNegocioTest {
             assertThat(salvar(1L, "Copa", "copa@exemplo.gov.br", null, false)).isEmpty();
         }
     }
+
+    @Nested
+    @DisplayName("RF06/RF08 – cadastro de recursos e ambientes do recurso")
+    class Rf06 {
+        static final long EQUIPAMENTO = 2L;
+        static final long GRUPO_INATIVO = 9L;
+        static final long PROJETOR = 6L;
+        final RecursoValidator rv = new RecursoValidator(Clock.fixed(dt("01/11 10:00").atZone(FUSO).toInstant(), FUSO));
+
+        DadosEmMemoria base() {
+            return dados()
+                    .grupo(new GrupoInfo(EQUIPAMENTO, "Equipamento", true))
+                    .grupo(new GrupoInfo(GRUPO_INATIVO, "Grupo antigo", false))
+                    .resumo(new RecursoResumo(PROJETOR, "Projetor", EQUIPAMENTO, true, 3, true, null))
+                    .resumo(new RecursoResumo(7, "Netbook", EQUIPAMENTO, true, 2, false, null));
+        }
+
+        static RecursoInput projetor(boolean limitado, Integer disp, Long unidade, boolean ativo) {
+            return new RecursoInput("Projetor", EQUIPAMENTO, limitado, disp, "equip_005.png", unidade, ativo);
+        }
+
+        List<Erro> salvar(Long id, RecursoInput in, DadosEmMemoria d) {
+            return rv.validar(id, in, UNIDADE, d);
+        }
+
+        @Test
+        void novoRecursoIlimitadoEhAceito() {
+            var in = new RecursoInput("Caixa de som", EQUIPAMENTO, false, 5, "equip_001.png", null, true);
+            assertThat(salvar(null, in, base())).isEmpty();
+            assertThat(RecursoValidator.disponibilidade(in)).isZero();
+        }
+
+        @Test
+        void descricaoRepetidaEntreAtivosBloqueia() {
+            var in = new RecursoInput(" projetor ", EQUIPAMENTO, false, null, "equip_005.png", null, true);
+            assertThat(regras(salvar(null, in, base()))).containsExactly("RF06");
+        }
+
+        @Test
+        void descricaoDeRecursoInativoPodeSerReusada() {
+            var in = new RecursoInput("Netbook", EQUIPAMENTO, true, 1, "equip_003.png", UNIDADE, true);
+            assertThat(salvar(null, in, base())).isEmpty();
+        }
+
+        @Test
+        void grupoInativoIconeForaDaListaEOutraUnidadeBloqueiam() {
+            var in = new RecursoInput("Novo", GRUPO_INATIVO, false, null, "foto.jpg", 99L, true);
+            assertThat(salvar(null, in, base())).hasSize(3).extracting(Erro::regra).containsOnly("RF06");
+        }
+
+        @Test
+        void limitadoSemDisponibilidadeBloqueia() {
+            assertThat(regras(salvar(null, new RecursoInput("Novo", EQUIPAMENTO, true, 0, "equip_001.png", null, true),
+                    base()))).containsExactly("RN8");
+        }
+
+        @Test
+        void inativarComReservaPrevistaBloqueia() {
+            var d = base().pedir(100, UNIDADE, SALA_1, 1, per("10/11 09:00", "10/11 10:00"));
+            var erros = salvar(PROJETOR, projetor(true, 3, null, false), d);
+            assertThat(regras(erros)).containsExactly("RF06");
+            assertThat(erros.getFirst().mensagem()).contains("#100");
+        }
+
+        @Test
+        void inativarComReservaJaTranscorridaEhAceito() {
+            var d = base().pedir(100, UNIDADE, SALA_1, 1, per("20/10 09:00", "20/10 10:00"));
+            assertThat(salvar(PROJETOR, projetor(true, 3, null, false), d)).isEmpty();
+        }
+
+        @Test
+        void reduzirDisponibilidadeAbaixoDoPedidoBloqueia() {
+            // Duas reservas que se cruzam pedem 2 + 1 = 3; reduzir para 2 → bloqueado.
+            var d = base()
+                    .pedir(100, UNIDADE, SALA_1, 2, per("10/11 14:00", "10/11 16:00"))
+                    .pedir(200, UNIDADE, SALA_2, 1, per("10/11 15:00", "10/11 17:00"));
+            var erros = salvar(PROJETOR, projetor(true, 2, null, true), d);
+            assertThat(regras(erros)).containsExactly("RN8");
+            assertThat(erros.getFirst().mensagem()).contains("#100", "#200");
+        }
+
+        @Test
+        void reduzirDisponibilidadeSemExcessoEhAceito() {
+            var d = base()
+                    .pedir(100, UNIDADE, SALA_1, 2, per("10/11 14:00", "10/11 16:00"))
+                    .pedir(200, UNIDADE, SALA_2, 1, per("10/11 16:00", "10/11 17:00"));
+            assertThat(salvar(PROJETOR, projetor(true, 2, null, true), d)).isEmpty();
+        }
+
+        @Test
+        void tornarLimitadoContaPedidoSemQuantidadeComoUm() {
+            var d = base()
+                    .pedir(100, UNIDADE, SALA_1, null, per("10/11 14:00", "10/11 16:00"))
+                    .pedir(200, UNIDADE, SALA_2, null, per("10/11 15:00", "10/11 17:00"));
+            assertThat(regras(salvar(PROJETOR, projetor(true, 1, null, true), d))).containsExactly("RN8");
+        }
+
+        @Test
+        void restringirAUnidadeComReservaDeOutraBloqueia() {
+            var d = base().pedir(100, 99L, null, 1, per("10/11 09:00", "10/11 10:00"));
+            assertThat(regras(salvar(PROJETOR, projetor(true, 3, UNIDADE, true), d))).containsExactly("RN9");
+        }
+
+        @Test
+        void vincularAmbientesDaUnidadeEhAceito() {
+            assertThat(rv.validarAmbientes(PROJETOR, List.of(SALA_1, SALA_2), UNIDADE, Set.of(), Set.of(), base()))
+                    .isEmpty();
+        }
+
+        @Test
+        void ambienteRepetidoInexistenteOuInativoBloqueia() {
+            var d = base().inativar(AUDITORIO);
+            var erros = rv.validarAmbientes(PROJETOR, List.of(SALA_1, SALA_1, 404L, AUDITORIO), UNIDADE, Set.of(),
+                    Set.of(), d);
+            assertThat(erros).hasSize(3).extracting(Erro::regra).containsOnly("RF08");
+        }
+
+        @Test
+        void ambienteInativoJaVinculadoPodeSerMantido() {
+            var d = base().inativar(AUDITORIO);
+            assertThat(rv.validarAmbientes(PROJETOR, List.of(AUDITORIO), UNIDADE, Set.of(AUDITORIO), Set.of(), d))
+                    .isEmpty();
+        }
+
+        @Test
+        void restringirAAmbientesComReservaEmOutroBloqueia() {
+            // Kit restrito à Sala 1, mas há reserva futura pedindo-o na Sala 2 → RN9.
+            var d = base().pedir(100, UNIDADE, SALA_2, 1, per("10/11 09:00", "10/11 10:00"));
+            var erros = rv.validarAmbientes(PROJETOR, List.of(SALA_1), UNIDADE, Set.of(), Set.of(), d);
+            assertThat(regras(erros)).containsExactly("RN9");
+            assertThat(erros.getFirst().mensagem()).contains("#100");
+        }
+
+        @Test
+        void listaVaziaTiraARestricao() {
+            var d = base().pedir(100, UNIDADE, null, 1, per("10/11 09:00", "10/11 10:00"));
+            assertThat(rv.validarAmbientes(PROJETOR, List.of(), UNIDADE, Set.of(SALA_1), Set.of(), d)).isEmpty();
+        }
+    }
 }

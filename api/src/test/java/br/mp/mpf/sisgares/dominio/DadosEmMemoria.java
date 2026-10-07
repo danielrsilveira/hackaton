@@ -11,7 +11,42 @@ import java.util.Optional;
 import java.util.Set;
 
 /** Implementação em memória de {@link DadosValidacao} e {@link DadosAmbiente} para os testes das regras. */
-class DadosEmMemoria implements DadosValidacao, DadosAmbiente {
+class DadosEmMemoria implements DadosValidacao, DadosAmbiente, DadosRecurso {
+
+    final List<RecursoResumo> resumos = new ArrayList<>();
+    final Map<Long, GrupoInfo> gruposPorId = new HashMap<>();
+    final List<UsoRecurso> usosRecurso = new ArrayList<>();
+
+    DadosEmMemoria resumo(RecursoResumo r) {
+        resumos.add(r);
+        return this;
+    }
+
+    DadosEmMemoria grupo(GrupoInfo g) {
+        gruposPorId.put(g.id(), g);
+        return this;
+    }
+
+    DadosEmMemoria pedir(long reservaId, long unidadeId, Long ambienteId, Integer qtd, Periodo p) {
+        usosRecurso.add(new UsoRecurso(reservaId, unidadeId, ambienteId, qtd, p.inicio(), p.termino()));
+        return this;
+    }
+
+    @Override
+    public List<RecursoResumo> recursos(long unidadeId) {
+        return resumos.stream().filter(r -> r.unidadeId() == null || r.unidadeId() == unidadeId).toList();
+    }
+
+    @Override
+    public Map<Long, GrupoInfo> grupos() {
+        return gruposPorId;
+    }
+
+    /** Nos testes os usos não distinguem recurso: cada cenário pede um só. */
+    @Override
+    public List<UsoRecurso> usosNaoTranscorridos(long recursoId, LocalDateTime agora) {
+        return usosRecurso.stream().filter(u -> u.termino().isAfter(agora)).toList();
+    }
 
     record Uso(long reservaId, long recursoId, int qtd, Periodo periodo) {
     }
