@@ -1,0 +1,79 @@
+.navegacao { display: flex; gap: 0.35rem; }
+.interruptor { align-self: center; margin-top: 1.2rem; }
+
+.legenda { list-style: none; padding: 0; margin: 0 0 1rem; display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; font-size: 0.82rem; color: var(--suave); }
+.legenda li { display: flex; align-items: center; gap: 0.4rem; }
+.amostra { width: 1.1rem; height: 1.1rem; border-radius: 4px; display: inline-block; border: 1px solid #94a3b8; }
+
+.grade-cartao { padding: 0; overflow: hidden; transition: opacity 0.15s; }
+.grade-cartao.carregando { opacity: 0.6; }
+.rolagem { max-height: 72vh; overflow: auto; }
+
+.grade { border-collapse: separate; border-spacing: 0; min-width: 100%; font-size: 0.8rem; }
+.grade th, .grade td { padding: 0; border-bottom: 1px solid #eef2f6; border-right: 1px solid #eef2f6; }
+.grade thead th {
+  position: sticky; top: 0; z-index: 3; background: var(--superficie); padding: 0.65rem 0.5rem;
+  border-bottom: 1px solid var(--linha); text-align: center; min-width: 9rem;
+}
+.dia-semana { display: block; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--suave); }
+.dia-numero { display: block; font-size: 1.05rem; font-weight: 700; color: var(--tinta); }
+thead th.hoje .dia-numero { display: inline-block; background: var(--primaria); color: #fff; border-radius: 999px; padding: 0 0.55rem; }
+thead th.hoje .dia-semana { color: var(--primaria); }
+
+.col-hora {
+  position: sticky; left: 0; z-index: 2; background: var(--superficie); width: 4.2rem; min-width: 4.2rem;
+  text-align: right; padding: 0 0.6rem !important; font-weight: 600; color: var(--suave); font-variant-numeric: tabular-nums;
+  vertical-align: top; padding-top: 0.45rem !important;
+}
+thead .col-hora { z-index: 4; }
+
+.cel { height: 2.6rem; vertical-align: top; position: relative; }
+.texto-cel { display: block; padding: 0.5rem 0.55rem; font-size: 0.74rem; line-height: 1.2; }
+
+/* Livre: célula clicável, discreta até receber hover/foco. */
+.slot {
+  display: flex; align-items: center; gap: 0.35rem; height: 100%; min-height: 2.6rem; padding: 0 0.55rem;
+  color: var(--primaria); text-decoration: none; font-weight: 500; font-size: 0.76rem; border-radius: 6px;
+  transition: background 0.12s;
+}
+.slot-acao { display: inline-grid; place-items: center; width: 1.1rem; height: 1.1rem; border-radius: 50%; background: var(--primaria-50); }
+.slot:hover, .slot:focus-visible { background: var(--primaria-50); color: var(--primaria-escura); }
+.slot:hover .slot-acao, .slot:focus-visible .slot-acao { background: var(--primaria); color: #fff; }
+.slot:focus-visible { box-shadow: inset 0 0 0 2px var(--primaria); }
+.slot-texto { white-space: nowrap; }
+/* Em colunas estreitas mostra só o horário; o nome acessível continua "Reservar às HH:MM". */
+@media (max-width: 1280px) {
+  .slot-rotulo { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+}
+
+/* Reservado: bloco contínuo com borda lateral. */
+.cel.reservado { background: #dbe7fb; border-left: 3px solid var(--primaria); border-bottom-color: #dbe7fb; }
+.cel.reservado.ultima { border-bottom: 2px solid var(--superficie); }
+.cel.reservado.propria { background: #d1fadf; border-left-color: var(--sucesso); border-bottom-color: #d1fadf; }
+.cel.reservado.propria.ultima { border-bottom-color: var(--superficie); }
+.bloco { padding: 0.4rem 0.55rem; display: flex; flex-direction: column; gap: 0.1rem; color: #0c326f; line-height: 1.25; }
+.cel.propria .bloco { color: #054f31; }
+.bloco a { color: inherit; text-decoration: none; display: flex; flex-direction: column; gap: 0.1rem; }
+.bloco a:hover span { text-decoration: underline; }
+.bloco strong { font-size: 0.78rem; }
+.bloco span { font-size: 0.74rem; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.bloco small { font-size: 0.7rem; font-weight: 600; }
+
+.cel.margem, .amostra.margem {
+  background: repeating-linear-gradient(135deg, #fff6db 0 6px, #fdecc0 6px 12px); color: #7a2e0e;
+}
+.cel.antecedencia, .amostra.antecedencia { background: var(--violeta-50); color: #4a1fb8; }
+.cel.passado, .amostra.passado { background: #f2f4f7; color: #475467; }
+.amostra.livre { background: var(--superficie); }
+.amostra.reservado { background: #dbe7fb; border-left: 3px solid var(--primaria); }
+.amostra.propria { background: #d1fadf; border-left: 3px solid var(--sucesso); }
+
+@media (max-width: 960px) {
+  .interruptor { margin-top: 0; }
+  .grade thead th { min-width: 7.5rem; }
+}
+
+/* Amostras da legenda: mais saturadas que as células para serem distinguíveis em tamanho pequeno. */
+.amostra.margem { background: repeating-linear-gradient(135deg, #fde7a8 0 4px, #f5c451 4px 8px); }
+.amostra.antecedencia { background: #ddd6fe; }
+.amostra.passado { background: #d0d5dd; }

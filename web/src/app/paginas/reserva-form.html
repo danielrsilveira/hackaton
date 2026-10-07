@@ -1,0 +1,199 @@
+@let d = detalhe();
+<div class="cabecalho-pagina">
+  <div>
+    <a class="voltar" routerLink="/painel"><app-icone nome="voltar" [tamanho]="16" /> Painel de horários</a>
+    <h2>
+      {{ d ? 'Reserva #' + d.id : 'Nova reserva' }}
+      @if (d) { <span [class]="'status ' + d.status">{{ STATUS[d.status] }}</span> }
+    </h2>
+  </div>
+</div>
+
+<section class="cartao resumo" aria-label="Dados da reserva">
+  <dl>
+    <div>
+      <dt><app-icone nome="pessoa" [tamanho]="16" /> Solicitante</dt>
+      <dd>{{ d ? d.solicitante : sessao.usuario()?.nome }}</dd>
+    </div>
+    <div>
+      <dt><app-icone nome="relogio" [tamanho]="16" /> Última alteração</dt>
+      <dd>{{ d ? dataHora(d.ultimaAlteracao) + ' · versão ' + d.versao : 'Ainda não salva' }}</dd>
+    </div>
+    <div class="snp">
+      <dt><app-icone nome="pacote" [tamanho]="16" /> Pedidos no SNP</dt>
+      <dd>
+        @for (p of d?.pedidosSnp ?? []; track p.id) {
+          <a class="chip-snp" [href]="p.url" target="_blank" rel="noopener" [title]="p.codServico + ' – ' + p.setor">
+            SNP {{ p.numero }} <app-icone nome="externo" [tamanho]="13" />
+            <span class="visualmente-oculto">({{ p.codServico }} – {{ p.setor }}; abre em nova aba)</span>
+          </a>
+        } @empty { <span class="vazio">Nenhum pedido</span> }
+      </dd>
+    </div>
+  </dl>
+</section>
+
+@if (mensagem()) {
+  <div class="sucesso" role="status" tabindex="-1" #resumoSucesso>
+    <app-icone nome="ok" [tamanho]="20" />
+    <div>
+      {{ mensagem() }}
+      @if (sessao.gestor()) { <a routerLink="/notificacoes">Ver notificações e pedidos SNP</a> }
+    </div>
+  </div>
+}
+
+@if (erros().length) {
+  <div class="erros" role="alert" tabindex="-1" #resumoErros>
+    <app-icone nome="alerta" [tamanho]="20" />
+    <div>
+      <strong>Não foi possível salvar. Corrija os itens abaixo:</strong>
+      <ul>
+        @for (e of erros(); track $index) { <li><strong>{{ e.regra }}</strong> · {{ e.mensagem }}</li> }
+      </ul>
+    </div>
+  </div>
+}
+
+@if (somenteLeitura()) {
+  <p class="aviso"><app-icone nome="alerta" [tamanho]="20" /> Esta reserva está {{ STATUS[d!.status].toLowerCase() }} ou pertence a outro solicitante e não pode ser alterada.</p>
+}
+
+@if (pronto()) {
+  <form (ngSubmit)="salvar()" novalidate>
+    <fieldset [disabled]="somenteLeitura() || salvando()">
+      <legend class="visualmente-oculto">Dados da reserva</legend>
+
+      <div class="colunas-form">
+        <section class="cartao" aria-labelledby="sec-local">
+          <h3 id="sec-local" class="cartao-titulo"><span class="passo" aria-hidden="true">1</span> Local</h3>
+          <div class="campos">
+            <div>
+              <label for="r-ambiente">Ambiente</label>
+              <select id="r-ambiente" name="ambiente" [(ngModel)]="ambienteId" (ngModelChange)="aoTrocarAmbiente()">
+                <option [ngValue]="null">Não solicitado / local próprio</option>
+                @for (a of ambientes(); track a.id) { <option [ngValue]="a.id">{{ a.descricao }}</option> }
+              </select>
+            </div>
+            <div>
+              <label for="r-complemento">
+                Complemento do ambiente @if (ambienteId == null) { <span class="obrigatorio">(obrigatório)</span> }
+              </label>
+              <input id="r-complemento" name="complemento" [(ngModel)]="complemento" [required]="ambienteId == null"
+                     aria-describedby="ajuda-complemento" maxlength="300" />
+              <span id="ajuda-complemento" class="ajuda">Ex.: gabinete, sala ou local próprio onde o evento ocorrerá.</span>
+            </div>
+            @if (ambienteId != null) {
+              <div>
+                <label for="r-disposicao">Disposição do ambiente <span class="opcional">(opcional)</span></label>
+                <select id="r-disposicao" name="disposicao" [(ngModel)]="disposicaoId">
+                  <option [ngValue]="null">Sem preferência</option>
+                  @for (dp of disposicoes(); track dp.id) { <option [ngValue]="dp.id">{{ dp.descricao }}</option> }
+                </select>
+                @if (imagemDisposicao(); as img) {
+                  <figure class="disposicao">
+                    <img [src]="'/img/disposicao/' + img.iconeArquivo" [alt]="'Ilustração da disposição ' + img.descricao" />
+                    <figcaption>{{ img.descricao }}</figcaption>
+                  </figure>
+                }
+              </div>
+            }
+          </div>
+        </section>
+
+        <section class="cartao" aria-labelledby="sec-detalhes">
+          <h3 id="sec-detalhes" class="cartao-titulo"><span class="passo" aria-hidden="true">2</span> Detalhes do evento</h3>
+          <div class="campos">
+            <div>
+              <label for="r-finalidade">Finalidade <span class="obrigatorio">(obrigatório)</span></label>
+              <textarea id="r-finalidade" name="finalidade" [(ngModel)]="finalidade" required rows="5"></textarea>
+            </div>
+            <div>
+              <label for="r-participantes">Participantes estimados <span class="obrigatorio">(obrigatório)</span></label>
+              <input id="r-participantes" name="participantes" type="number" min="1" [(ngModel)]="participantes" required />
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <section class="cartao" aria-labelledby="sec-periodos">
+        <h3 id="sec-periodos" class="cartao-titulo"><span class="passo" aria-hidden="true">3</span> Períodos</h3>
+        <p class="ajuda topo">Pelo menos um período. Pode começar num dia e terminar em outro. Conflitos são verificados a cada alteração.</p>
+        <ol class="periodos">
+          @for (p of periodos; track $index; let i = $index) {
+            <li class="periodo" [class.com-erro]="errosDoPeriodo(i).length">
+              <span class="numero" aria-hidden="true">{{ i + 1 }}</span>
+              <div class="periodo-campos">
+                <div>
+                  <label [for]="'p-ini-' + i">Início do período {{ i + 1 }}</label>
+                  <input [id]="'p-ini-' + i" [name]="'ini' + i" type="datetime-local" step="1800" [(ngModel)]="p.inicio"
+                         (ngModelChange)="aoMudarInicio(p)" required [attr.aria-describedby]="'p-err-' + i" />
+                </div>
+                <div>
+                  <label [for]="'p-fim-' + i">Término do período {{ i + 1 }}</label>
+                  <input [id]="'p-fim-' + i" [name]="'fim' + i" type="datetime-local" step="1800" [(ngModel)]="p.termino"
+                         (ngModelChange)="previa()" required [attr.aria-describedby]="'p-err-' + i" />
+                </div>
+              </div>
+              @if (periodos.length > 1) {
+                <button type="button" class="fantasma icone" (click)="removerPeriodo(i)" [attr.aria-label]="'Remover período ' + (i + 1)">
+                  <app-icone nome="lixeira" />
+                </button>
+              }
+              <div class="msgs" [id]="'p-err-' + i" aria-live="polite">
+                @for (e of errosDoPeriodo(i); track $index) {
+                  <p class="erro-campo"><app-icone nome="alerta" [tamanho]="15" /> <span><strong>{{ e.regra }}</strong> · {{ e.mensagem }}</span></p>
+                }
+              </div>
+            </li>
+          }
+        </ol>
+        <button type="button" class="secundario" (click)="adicionarPeriodo()"><app-icone nome="mais" /> Adicionar período</button>
+      </section>
+
+      <section class="cartao" aria-labelledby="sec-recursos">
+        <h3 id="sec-recursos" class="cartao-titulo"><span class="passo" aria-hidden="true">4</span> Recursos e serviços</h3>
+        @for (g of grupos(); track g.grupo) {
+          <fieldset class="grupo">
+            <legend>{{ g.grupo }}</legend>
+            <ul class="recursos">
+              @for (r of g.itens; track r.id) {
+                <li class="tile" [class.marcado]="sel(r).marcado">
+                  <input type="checkbox" [id]="'rec-' + r.id" [name]="'rec' + r.id" [ngModel]="sel(r).marcado" (ngModelChange)="marcar(r, $event)" />
+                  <span class="tile-icone"><img [src]="'/img/recurso/' + r.iconeArquivo" alt="" width="22" height="22" /></span>
+                  <label [for]="'rec-' + r.id">
+                    {{ r.descricao }}
+                    @if (r.limitado) { <span class="ajuda">{{ r.disponibilidade }} na unidade</span> }
+                  </label>
+                  @if (r.limitado && sel(r).marcado) {
+                    <span class="qtd">
+                      <label class="visualmente-oculto" [for]="'qtd-' + r.id">Quantidade de {{ r.descricao }}</label>
+                      <input type="number" min="1" [max]="r.disponibilidade" [id]="'qtd-' + r.id" [name]="'qtd' + r.id"
+                             [(ngModel)]="sel(r).quantidade" (ngModelChange)="previa()" />
+                    </span>
+                  }
+                </li>
+              }
+            </ul>
+          </fieldset>
+        } @empty {
+          <p class="ajuda">Nenhum recurso disponível para este ambiente.</p>
+        }
+        <div aria-live="polite">
+          @for (e of errosGerais(); track $index) {
+            <p class="erro-campo"><app-icone nome="alerta" [tamanho]="15" /> <span><strong>{{ e.regra }}</strong> · {{ e.mensagem }}</span></p>
+          }
+        </div>
+      </section>
+
+      <div class="acoes">
+        <a class="botao fantasma" routerLink="/painel">Voltar</a>
+        <span class="espaco"></span>
+        @if (d?.podeCancelar) {
+          <button type="button" class="perigo" (click)="cancelarReserva()">Cancelar reserva</button>
+        }
+        <button type="submit"><app-icone nome="ok" /> {{ salvando() ? 'Salvando…' : d ? 'Salvar alterações' : 'Salvar reserva' }}</button>
+      </div>
+    </fieldset>
+  </form>
+}

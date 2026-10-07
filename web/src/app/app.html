@@ -1,0 +1,61 @@
+<a class="pular" href="#conteudo" (click)="pularParaConteudo($event)">Pular para o conteúdo</a>
+
+<div class="shell">
+  <aside class="lateral" [class.aberta]="menuAberto()" id="menu-lateral">
+    <div class="marca">
+      <span class="logo" aria-hidden="true">S</span>
+      <div>
+        <h1>SISGARES</h1>
+        <span class="subtitulo">Ambientes, recursos e serviços</span>
+      </div>
+      <button type="button" class="fantasma icone fechar-menu" (click)="menuAberto.set(false)" aria-label="Fechar menu">
+        <app-icone nome="fechar" />
+      </button>
+    </div>
+
+    <nav aria-label="Navegação principal">
+      <ul>
+        @for (m of menu(); track m.rota) {
+          <li>
+            <a [routerLink]="m.rota" routerLinkActive="ativo" ariaCurrentWhenActive="page">
+              <app-icone [nome]="m.icone" />
+              <span>{{ m.rotulo }}</span>
+            </a>
+          </li>
+        }
+      </ul>
+    </nav>
+
+    <p class="nota">Demonstração · dados fictícios (LGPD) · sem autenticação real</p>
+  </aside>
+
+  @if (menuAberto()) {
+    <div class="veu" (click)="menuAberto.set(false)" aria-hidden="true"></div>
+  }
+
+  <div class="area">
+    <header class="barra">
+      <button type="button" class="fantasma icone abrir-menu" (click)="menuAberto.set(true)"
+              aria-label="Abrir menu" aria-controls="menu-lateral" [attr.aria-expanded]="menuAberto()">
+        <app-icone nome="menu" [tamanho]="22" />
+      </button>
+      <span class="marca-compacta">SISGARES</span>
+
+      <div class="perfil">
+        <span class="avatar" aria-hidden="true">{{ iniciais() }}</span>
+        <div class="perfil-campo">
+          <label for="usuario-atual">Usuário (simulado)</label>
+          <select id="usuario-atual" [ngModel]="sessao.usuarioId()" (ngModelChange)="trocarUsuario($event)">
+            @for (u of usuarios(); track u.id) {
+              <option [ngValue]="u.id">{{ nomeCurto(u) }} · {{ perfilRotulo[u.perfil] }}</option>
+            }
+          </select>
+        </div>
+      </div>
+    </header>
+
+    <main id="conteudo" tabindex="-1" #principal>
+      <router-outlet />
+    </main>
+  </div>
+</div>

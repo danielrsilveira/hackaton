@@ -1,0 +1,110 @@
+<div class="cabecalho-pagina">
+  <div>
+    <h2>Painel de horários</h2>
+    <p>Escolha um horário livre para abrir a reserva já preenchida.</p>
+  </div>
+  <a class="botao" routerLink="/reserva/nova"><app-icone nome="mais" /> Nova reserva</a>
+</div>
+
+<form class="cartao filtros" (submit)="$event.preventDefault()" aria-label="Opções do painel">
+  <div class="campo-largo">
+    <label for="f-ambiente">Ambiente</label>
+    <select id="f-ambiente" [ngModel]="ambienteId()" name="ambiente" (ngModelChange)="alterar('ambiente', $event)">
+      @for (a of ambientes(); track a.id) {
+        <option [ngValue]="a.id">{{ a.descricao }}</option>
+      }
+    </select>
+  </div>
+  <div>
+    <label for="f-ref">Data de referência</label>
+    <input id="f-ref" type="date" name="ref" [ngModel]="referencia()" (ngModelChange)="alterar('referencia', $event)" />
+  </div>
+  <div class="campo-curto">
+    <label for="f-colunas">Dias exibidos</label>
+    <input id="f-colunas" type="number" min="1" max="14" name="colunas" [ngModel]="colunas()" (ngModelChange)="alterar('colunas', $event)" />
+  </div>
+  <div class="navegacao" role="group" aria-label="Navegar entre datas">
+    <button type="button" class="secundario icone" (click)="navegar(-1)" aria-label="Dias anteriores"><app-icone nome="esquerda" /></button>
+    <button type="button" class="secundario" (click)="navegar(0)">Hoje</button>
+    <button type="button" class="secundario icone" (click)="navegar(1)" aria-label="Próximos dias"><app-icone nome="direita" /></button>
+  </div>
+  <label class="interruptor" for="f-fds">
+    <input id="f-fds" type="checkbox" name="fds" [ngModel]="fimDeSemana()" (ngModelChange)="alterar('fimDeSemana', $event)" />
+    Exibir finais de semana
+  </label>
+</form>
+
+<ul class="legenda" aria-label="Legenda">
+  <li><span class="amostra livre" aria-hidden="true"></span> Livre</li>
+  <li><span class="amostra reservado" aria-hidden="true"></span> Reservado</li>
+  <li><span class="amostra propria" aria-hidden="true"></span> Sua reserva</li>
+  <li><span class="amostra margem" aria-hidden="true"></span> Margem de tolerância (30 min)</li>
+  <li><span class="amostra antecedencia" aria-hidden="true"></span> Sem antecedência mínima</li>
+  <li><span class="amostra passado" aria-hidden="true"></span> Horário ultrapassado</li>
+</ul>
+
+<p aria-live="polite" class="visualmente-oculto">{{ carregando() ? 'Carregando horários…' : '' }}</p>
+
+@if (agenda()) {
+  <div class="cartao grade-cartao" [class.carregando]="carregando()">
+    <div class="rolagem" tabindex="0" role="region" aria-label="Grade de horários">
+      <table class="grade">
+        <caption class="visualmente-oculto">Horários de {{ ambienteNome() }} – intervalos de 30 minutos</caption>
+        <thead>
+          <tr>
+            <th scope="col" class="col-hora"><span class="visualmente-oculto">Horário</span></th>
+            @for (d of datas(); track d.getTime()) {
+              <th scope="col" [class.hoje]="ehHoje(d)">
+                <span class="dia-semana">{{ cabecalhoDia(d).split(' ')[0] }}</span>
+                <span class="dia-numero">{{ cabecalhoDia(d).split(' ')[1] }}</span>
+                @if (ehHoje(d)) { <span class="visualmente-oculto">(hoje)</span> }
+              </th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (l of linhas(); track l.hora) {
+            <tr>
+              <th scope="row" class="col-hora">{{ l.hora }}</th>
+              @for (c of l.celulas; track c.inicio) {
+                <td [class]="'cel ' + c.tipo + (c.item?.propria ? ' propria' : '') + (c.primeira ? ' primeira' : '') + (c.ultima ? ' ultima' : '')">
+                  @switch (c.tipo) {
+                    @case ('livre') {
+                      <a class="slot" [routerLink]="['/reserva/nova']" [queryParams]="{ ambiente: ambienteId(), inicio: c.inicio }">
+                        <span class="slot-acao" aria-hidden="true"><app-icone nome="mais" [tamanho]="14" /></span>
+                        <span class="slot-texto"><span class="slot-rotulo">Reservar às </span>{{ l.hora }}</span>
+                      </a>
+                    }
+                    @case ('reservado') {
+                      @if (c.primeira) {
+                        <div class="bloco">
+                          @if (c.item!.podeAbrir) {
+                            <a [routerLink]="['/reserva', c.item!.reservaId]" [attr.aria-label]="descricaoReserva(c)">
+                              <strong>{{ descricaoCurta(c) }}</strong>
+                              <span>{{ c.item!.finalidade }}</span>
+                              @if (c.item!.ambienteId !== ambienteId()) { <small>{{ c.item!.ambiente }}</small> }
+                            </a>
+                          } @else {
+                            <span class="visualmente-oculto">{{ descricaoReserva(c) }}</span>
+                            <strong aria-hidden="true">{{ descricaoCurta(c) }}</strong>
+                            <span aria-hidden="true">Reservado</span>
+                            @if (c.item!.ambienteId !== ambienteId()) { <small aria-hidden="true">{{ c.item!.ambiente }}</small> }
+                          }
+                        </div>
+                      } @else {
+                        <span class="visualmente-oculto">Reservado (continuação)</span>
+                      }
+                    }
+                    @case ('margem') { <span class="texto-cel">Margem de tolerância</span> }
+                    @case ('passado') { <span class="texto-cel">Horário ultrapassado</span> }
+                    @case ('antecedencia') { <span class="texto-cel">Sem antecedência mínima</span> }
+                  }
+                </td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}

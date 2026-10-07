@@ -1,0 +1,78 @@
+<div class="cabecalho-pagina">
+  <div>
+    <h2>Painel do atendente</h2>
+    <p>Reservas por data para planejar o atendimento dos próximos dias.</p>
+  </div>
+</div>
+
+<form class="cartao filtros" (submit)="$event.preventDefault()" aria-label="Opções do painel">
+  <div class="campo-largo">
+    <label for="a-setor">Setor envolvido</label>
+    <select id="a-setor" name="setor" [ngModel]="setorId()" (ngModelChange)="alterar('setor', $event)">
+      <option [ngValue]="null">Todos os setores</option>
+      @for (s of setores(); track s.id) { <option [ngValue]="s.id">{{ s.descricao }}</option> }
+    </select>
+  </div>
+  <div>
+    <label for="a-ref">Data de referência</label>
+    <input id="a-ref" type="date" name="ref" [ngModel]="referencia()" (ngModelChange)="alterar('referencia', $event)" />
+  </div>
+  <div class="campo-curto">
+    <label for="a-colunas">Dias exibidos</label>
+    <input id="a-colunas" type="number" min="1" max="14" name="colunas" [ngModel]="colunas()" (ngModelChange)="alterar('colunas', $event)" />
+  </div>
+  <label class="interruptor alinhado" for="a-fds">
+    <input id="a-fds" type="checkbox" name="fds" [ngModel]="fimDeSemana()" (ngModelChange)="alterar('fimDeSemana', $event)" />
+    Exibir finais de semana
+  </label>
+</form>
+
+@if (erro()) { <p class="erros" role="alert"><app-icone nome="alerta" [tamanho]="20" /> {{ erro() }}</p> }
+
+<div class="colunas">
+  @for (col of colunasCards(); track col.data.getTime()) {
+    <section class="coluna" [class.hoje]="ehHoje(col.data)" [attr.aria-labelledby]="'dia-' + col.data.getTime()">
+      <h3 [id]="'dia-' + col.data.getTime()">
+        <span class="dia">
+          <span class="dia-semana">{{ cabecalhoDia(col.data).split(' ')[0] }}</span>
+          <span class="dia-numero">{{ cabecalhoDia(col.data).split(' ')[1] }}</span>
+          @if (ehHoje(col.data)) { <span class="etiqueta hoje-tag">Hoje</span> }
+        </span>
+        <span class="contador" [attr.aria-label]="col.itens.length + ' reservas'">{{ col.itens.length }}</span>
+      </h3>
+      @for (x of col.itens; track x.card.reservaId) {
+        <article class="card" [attr.aria-labelledby]="'card-' + col.data.getTime() + '-' + x.card.reservaId">
+          <div class="card-topo">
+            <span class="horario">
+              <app-icone nome="relogio" [tamanho]="15" />
+              @for (p of x.periodos; track p.inicio; let ultimo = $last) { {{ faixa(p.inicio, p.termino, col.data) }}@if (!ultimo) {, } }
+            </span>
+            <span [class]="'status ' + x.card.status">{{ STATUS[x.card.status] }}</span>
+          </div>
+          <h4 [id]="'card-' + col.data.getTime() + '-' + x.card.reservaId">{{ x.card.finalidade }}</h4>
+          <ul class="meta">
+            <li><app-icone nome="local" [tamanho]="15" /> <span class="visualmente-oculto">Local:</span> {{ x.card.ambiente }}</li>
+            <li><app-icone nome="pessoa" [tamanho]="15" /> <span class="visualmente-oculto">Solicitante:</span> {{ x.card.solicitante }}</li>
+            <li><app-icone nome="grupo" [tamanho]="15" /> {{ x.card.qtdParticipantes }} participantes</li>
+          </ul>
+          @if (x.card.recursos.length) {
+            <ul class="recursos" aria-label="Recursos e serviços">
+              @for (r of x.card.recursos; track r.recursoId) {
+                <li><img [src]="'/img/recurso/' + r.iconeArquivo" alt="" width="16" height="16" />
+                  {{ r.descricao }}@if (r.limitado && r.quantidade) { <strong>×{{ r.quantidade }}</strong> }</li>
+              }
+            </ul>
+          }
+          <div class="card-rodape">
+            @for (p of x.card.pedidosSnp; track p.id) {
+              <a class="chip-snp" [href]="p.url" target="_blank" rel="noopener">SNP {{ p.numero }}<span class="visualmente-oculto"> (abre em nova aba)</span></a>
+            }
+            <a class="abrir" [routerLink]="['/reserva', x.card.reservaId]">Abrir #{{ x.card.reservaId }} <app-icone nome="direita" [tamanho]="14" /></a>
+          </div>
+        </article>
+      } @empty {
+        <p class="vazio">Sem reservas</p>
+      }
+    </section>
+  }
+</div>

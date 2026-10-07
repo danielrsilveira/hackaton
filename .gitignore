@@ -1,0 +1,11 @@
+.env
+api/target/
+web/node_modules/
+web/dist/
+web/.angular/
+.idea/
+.vscode/
+*.iml
+*.log
+.DS_Store
+Thumbs.db

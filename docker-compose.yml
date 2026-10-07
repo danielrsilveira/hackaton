@@ -1,0 +1,83 @@
+# SISGARES – um comando, em Windows, macOS (Intel/Apple Silicon) e Linux:
+#
+#   docker compose up            -> sobe tudo; abra http://localhost:4200
+#   docker compose down -v       -> para e apaga o banco (a próxima subida recarrega o seed)
+#
+# Desenvolvimento (opcional):
+#   docker compose up -d db                   -> só o banco (API nativa com ./mvnw spring-boot:run)
+#   docker compose up -d db api               -> banco + API (front nativo com npm start)
+#   docker compose --profile dev up web-dev   -> front com recarga automática em container (porta 4201)
+#
+# Funciona sem .env (todos os valores têm default). Portas configuráveis: WEB_PORT, API_PORT, DB_PORT_HOST.
+name: sisgares
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-sisgares}
+      POSTGRES_USER: ${DB_USER:-sisgares}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-sisgares_dev}
+      TZ: America/Fortaleza
+      PGTZ: America/Fortaleza
+    ports:
+      - "${DB_PORT_HOST:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: ./api
+    image: sisgares-api:local
+    pull_policy: build          # sempre reconstrói a partir do código (cache torna isso rápido)
+    restart: unless-stopped
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-sisgares}
+      DB_USER: ${DB_USER:-sisgares}
+      DB_PASSWORD: ${DB_PASSWORD:-sisgares_dev}
+      SNP_ENDPOINT: http://localhost:8080/mock-snp/pedidos
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local,seed}
+      CORS_ORIGINS: http://localhost:${WEB_PORT:-4200},http://localhost:4201
+    ports:
+      - "${API_PORT:-8080}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build: ./web
+    image: sisgares-web:local
+    pull_policy: build
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-4200}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  web-dev:
+    profiles: ["dev"]
+    image: node:24-alpine
+    working_dir: /app
+    command: sh -c "npm ci --no-audit --no-fund && npx ng serve --host 0.0.0.0 --port 4201 --poll 2000"
+    environment:
+      API_URL: http://api:8080
+    volumes:
+      - ./web:/app
+      - /app/node_modules
+      - /app/.angular
+    ports:
+      - "4201:4201"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  pgdata:

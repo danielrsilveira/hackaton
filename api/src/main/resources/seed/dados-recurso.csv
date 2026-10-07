@@ -1,0 +1,21 @@
+"RECU_ID","RECU_DESC","RECU_GREC_ID","RECU_ST_LIMITADO","RECU_DISPONIBILIDADE","RECU_ST_ATIVO","RECU_ICONE_ARQUIVO"
+1,Serviço de Copa - Água,1,N,0,S,serv_003.png
+2,Serviço de Copa - Café,1,N,0,S,serv_002.png
+3,Serviço de Copa - Água e Café,1,N,0,S,serv_001.png
+4,Som Ambiente,3,N,0,S,estrut_001.png
+5,Som Ambiente c/ Microfone,3,N,0,S,estrut_002.png
+6,Projetor Multimídia Portátil,2,S,2,S,equip_005.png
+7,Microcomputador,2,S,20,N,equip_001.png
+8,Notebook ( c/ leitor DVD ),2,S,4,S,equip_002.png
+9,Netbook ( s/ leitor DVD ),2,S,2,S,equip_003.png
+10,Impressora,2,S,3,S,equip_004.png
+11,Videoconferência (CODEC 01),2,N,0,S,equip_006.png
+12,Quadro / Flip chart,2,S,1,S,equip_007.png
+13,Projetor Multimídia Fixo,2,N,0,S,equip_005.png
+14,Scanner,2,S,2,S,equip_008.png
+15,Material de Escritório,2,N,0,S,equip_009.png
+16,Webcam,2,S,3,S,equip_010.png
+36,Apresentador Multimídia,2,S,2,S,equip_011.png
+56,Computador Desktop,2,S,6,S,equip_001.png
+76,Videoconferência (CODEC 02),2,N,0,S,equip_006.png
+96,Videoconferência,2,S,1,S,equip_006.png

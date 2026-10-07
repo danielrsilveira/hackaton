@@ -1,0 +1,8 @@
+"DISP_ID","DISP_DESC","DISP_ST_ATIVO","DISP_ICONE_ARQUIVO"
+1,Auditório,S,disp_001.jpg
+2,Auditório com mesas,S,disp_002.jpg
+3,Espinha de peixe,S,disp_003.jpg
+4,Espinha de peixe com mesas,S,disp_004.jpg
+5,Mesa única,S,disp_005.jpg
+6,Mesas em retângulo,S,disp_006.jpg
+7,"Mesas em ""U""",S,disp_007.jpg
