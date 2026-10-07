@@ -56,7 +56,7 @@ public class CadastroController {
         return cadastros.ambientes(usuarios.de(uid).unidadeId());
     }
 
-    /** F9/RF01: somente administrador. */
+    /** F9/RF02: somente administrador. */
     @PostMapping("/ambientes")
     @ResponseStatus(HttpStatus.CREATED)
     public Ambiente criarAmbiente(@RequestBody AmbienteInput in,
@@ -64,7 +64,7 @@ public class CadastroController {
         return ambientes.criar(usuarios.admin(uid).unidadeId(), in);
     }
 
-    /** F9/RF01: somente administrador. Inativar = enviar {@code ativo: false}. */
+    /** F9/RF02: somente administrador. Inativar = enviar {@code ativo: false}. */
     @PutMapping("/ambientes/{id}")
     public Ambiente alterarAmbiente(@PathVariable long id, @RequestBody AmbienteInput in,
             @RequestHeader(value = UsuarioAtual.HEADER, required = false) Long uid) {

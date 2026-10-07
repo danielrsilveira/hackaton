@@ -91,7 +91,7 @@ As regras ficam em uma classe pura e testável ([`ReservaValidator`](api/src/mai
 | RN11 | Pedido no SNP só quando o vínculo tem código de serviço |
 | RN12 | Só reservas não transcorridas podem ser alteradas; cancelamento exige antecedência; e-mail destaca o que mudou |
 | RN13 | Status calculado pelo horário: prevista, em andamento, transcorrida ou cancelada |
-| RF01 | Cadastro de ambientes (regras desta solução): descrição única entre os ativos; pai ativo da mesma unidade e sem ciclo; inativar só sem filhos ativos e sem reservas previstas ou em andamento; mudar o pai é bloqueado (RN6) se criar conflito entre reservas já gravadas; reserva só em ambiente ativo da unidade |
+| RF02 | Cadastro de ambientes (regras desta solução): descrição única entre os ativos; pai ativo da mesma unidade e sem ciclo; inativar só sem filhos ativos e sem reservas previstas ou em andamento; mudar o pai é bloqueado (RN6) se criar conflito entre reservas já gravadas; reserva só em ambiente ativo da unidade |
 
 Fórmula de conflito (RN5/RN6), aplicada ao ambiente, aos seus ancestrais e aos seus descendentes:
 

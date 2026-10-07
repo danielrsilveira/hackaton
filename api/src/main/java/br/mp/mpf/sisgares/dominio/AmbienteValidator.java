@@ -12,7 +12,7 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Regras do cadastro de ambientes (F9/RF01). Classe pura: sem Spring e sem banco.
+ * Regras do cadastro de ambientes (F9/RF02). Classe pura: sem Spring e sem banco.
  * <ul>
  * <li>Descrição obrigatória (até 200 caracteres) e única entre os ambientes ativos da unidade.</li>
  * <li>Pai da mesma unidade, ativo, sem ciclo (não pode ser o próprio ambiente nem um descendente).</li>
@@ -22,7 +22,7 @@ import java.util.Set;
  */
 public class AmbienteValidator {
 
-    public static final String REGRA = "RF01";
+    public static final String REGRA = "RF02";
     public static final int TAMANHO_DESCRICAO = 200;
     /** Quantos conflitos/reservas listar na mensagem, para não gerar um aviso gigante. */
     static final int LIMITE_LISTA = 5;

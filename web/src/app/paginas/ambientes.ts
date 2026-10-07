@@ -5,7 +5,7 @@ import { arvoreAmbientes, descendentes } from '../arvore-ambientes';
 import { Icone } from '../icone';
 
 /**
- * F9 / RF01: cadastro de ambientes com hierarquia (somente administrador).
+ * F9 / RF02: cadastro de ambientes com hierarquia (somente administrador).
  * Não há exclusão: o ambiente é inativado (reservas e vínculos continuam apontando para ele).
  */
 @Component({
@@ -190,7 +190,7 @@ export class Ambientes {
   protected salvar(): void {
     const dados = { descricao: this.descricao.trim(), idPai: this.idPai, ativo: this.ativo };
     if (!dados.descricao) {
-      this.erros.set([{ regra: 'RF01', mensagem: 'Informe a descrição do ambiente.' }]);
+      this.erros.set([{ regra: 'RF02', mensagem: 'Informe a descrição do ambiente.' }]);
       return;
     }
     const id = this.editandoId();

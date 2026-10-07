@@ -12,7 +12,7 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Regras de negócio da reserva (RN1–RN9, RN12 e ambiente disponível, RF01). Classe pura: sem Spring e sem banco,
+ * Regras de negócio da reserva (RN1–RN9, RN12 e ambiente disponível, RF02). Classe pura: sem Spring e sem banco,
  * recebe o relógio e uma porta de leitura de dados.
  */
 public class ReservaValidator {
@@ -51,7 +51,7 @@ public class ReservaValidator {
                     "Sem ambiente solicitado (\"Não solicitado / local próprio\"), o complemento do ambiente é obrigatório."));
         }
 
-        // RF01: o ambiente precisa existir, estar ativo e pertencer à unidade
+        // RF02: o ambiente precisa existir, estar ativo e pertencer à unidade
         boolean ambienteValido = true;
         if (in.ambienteId() != null) {
             Optional<AmbienteInfo> amb = dados.ambiente(in.ambienteId());

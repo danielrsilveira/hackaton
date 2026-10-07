@@ -373,32 +373,32 @@ class RegrasNegocioTest {
     }
 
     @Nested
-    @DisplayName("RF01 – reserva só em ambiente ativo da unidade")
-    class Rf01Reserva {
+    @DisplayName("RF02 – reserva só em ambiente ativo da unidade")
+    class Rf02Reserva {
         @Test
         void ambienteInativoBloqueia() {
             var d = dados().inativar(SALA_2);
             assertThat(regras(validar(reserva(SALA_2, List.of(), per("10/11 09:00", "10/11 10:00")), d)))
-                    .containsExactly("RF01");
+                    .containsExactly("RF02");
         }
 
         @Test
         void ambienteDeOutraUnidadeBloqueia() {
             var d = dados().naUnidade(SALA_2, 99L);
             assertThat(regras(validar(reserva(SALA_2, List.of(), per("10/11 09:00", "10/11 10:00")), d)))
-                    .containsExactly("RF01");
+                    .containsExactly("RF02");
         }
 
         @Test
         void ambienteInexistenteBloqueia() {
             assertThat(regras(validar(reserva(404L, List.of(), per("10/11 09:00", "10/11 10:00")), dados())))
-                    .containsExactly("RF01");
+                    .containsExactly("RF02");
         }
     }
 
     @Nested
-    @DisplayName("RF01 – cadastro de ambientes")
-    class Rf01Cadastro {
+    @DisplayName("RF02 – cadastro de ambientes")
+    class Rf02Cadastro {
         final AmbienteValidator av = new AmbienteValidator(Clock.fixed(dt("01/11 10:00").atZone(FUSO).toInstant(), FUSO));
 
         List<Erro> salvar(Long id, String descricao, Long idPai, boolean ativo, DadosEmMemoria d) {
@@ -412,12 +412,12 @@ class RegrasNegocioTest {
 
         @Test
         void descricaoObrigatoria() {
-            assertThat(regras(salvar(null, "  ", null, true, dados()))).containsExactly("RF01");
+            assertThat(regras(salvar(null, "  ", null, true, dados()))).containsExactly("RF02");
         }
 
         @Test
         void descricaoRepetidaEntreAtivosBloqueia() {
-            assertThat(regras(salvar(null, " sala 1 ", null, true, dados()))).containsExactly("RF01");
+            assertThat(regras(salvar(null, " sala 1 ", null, true, dados()))).containsExactly("RF02");
         }
 
         @Test
@@ -428,38 +428,38 @@ class RegrasNegocioTest {
         @Test
         void paiDeOutraUnidadeBloqueia() {
             assertThat(regras(salvar(null, "Nova sala", SALA_2, true, dados().naUnidade(SALA_2, 99L))))
-                    .containsExactly("RF01");
+                    .containsExactly("RF02");
         }
 
         @Test
         void paiInativoBloqueia() {
             assertThat(regras(salvar(null, "Nova sala", SALA_2, true, dados().inativar(SALA_2))))
-                    .containsExactly("RF01");
+                    .containsExactly("RF02");
         }
 
         @Test
         void ambienteNaoPodeSerPaiDeSiMesmo() {
-            assertThat(regras(salvar(SALA_1, "Sala 1", SALA_1, true, dados()))).containsExactly("RF01");
+            assertThat(regras(salvar(SALA_1, "Sala 1", SALA_1, true, dados()))).containsExactly("RF02");
         }
 
         @Test
         void filhoNaoPodeVirarPaiCiclo() {
             // Auditório → Parte A → Auditório formaria um ciclo
             assertThat(regras(salvar(AUDITORIO, "Auditório (Completo)", SALA_A, true, dados())))
-                    .containsExactly("RF01");
+                    .containsExactly("RF02");
         }
 
         @Test
         void inativarPaiComFilhosAtivosBloqueia() {
             assertThat(regras(salvar(AUDITORIO, "Auditório (Completo)", null, false, dados())))
-                    .containsExactly("RF01");
+                    .containsExactly("RF02");
         }
 
         @Test
         void inativarComReservaPrevistaBloqueia() {
             var d = dados().reservar(100, SALA_1, per("10/11 09:00", "10/11 10:00"));
             var erros = salvar(SALA_1, "Sala 1", null, false, d);
-            assertThat(regras(erros)).containsExactly("RF01");
+            assertThat(regras(erros)).containsExactly("RF02");
             assertThat(erros.getFirst().mensagem()).contains("#100");
         }
 

@@ -81,7 +81,7 @@ public class CadastroRepository {
                 .param("uni", unidadeId).query(Ambiente.class).list();
     }
 
-    /** F9/RF01: todos os ambientes da unidade, inclusive inativos (tela de cadastro). */
+    /** F9/RF02: todos os ambientes da unidade, inclusive inativos (tela de cadastro). */
     public List<Ambiente> ambientesTodos(long unidadeId) {
         return jdbc.sql("select id, descricao, id_pai, ativo from ambiente where unidade_id = :uni order by descricao")
                 .param("uni", unidadeId).query(Ambiente.class).list();

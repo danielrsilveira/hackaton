@@ -16,7 +16,7 @@ import br.mp.mpf.sisgares.infra.CadastroRepository;
 import br.mp.mpf.sisgares.infra.CadastroRepository.Ambiente;
 
 /**
- * Cadastro de ambientes (F9/RF01). Não há exclusão: reservas e vínculos referenciam o ambiente,
+ * Cadastro de ambientes (F9/RF02). Não há exclusão: reservas e vínculos referenciam o ambiente,
  * então ele é inativado. A escrita usa a mesma {@link TravaEscrita} das reservas, porque a
  * hierarquia alimenta a verificação de conflito RN6.
  */
