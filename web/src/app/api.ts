@@ -16,6 +16,10 @@ export interface Usuario {
 }
 export interface Ambiente { id: number; descricao: string; idPai: number | null; ativo: boolean; }
 export interface AmbienteInput { descricao: string; idPai: number | null; ativo: boolean; }
+export interface SetorCadastro {
+  id: number; descricao: string; email: string; emailsLista: string | null; ativo: boolean; ambientes: number; recursos: number;
+}
+export interface SetorInput { descricao: string; email: string; emailsLista: string | null; ativo: boolean; }
 export interface VinculoSetor { setorId: number; setor: string; setorAtivo: boolean; codServicoSnp: string | null; }
 export interface VinculoSetorInput { setorId: number | null; codServicoSnp: string | null; }
 export interface Disposicao { id: number; descricao: string; iconeArquivo: string; }
@@ -114,6 +118,10 @@ export class Api {
     return this.http.get<Recurso[]>(`/api/recursos${q}`);
   }
   setores() { return this.http.get<Setor[]>('/api/setores'); }
+  /** F9/RF01: setores da unidade, inclusive inativos; somente administrador. */
+  setoresCadastro() { return this.http.get<SetorCadastro[]>('/api/setores/cadastro'); }
+  criarSetor(s: SetorInput) { return this.http.post<SetorCadastro>('/api/setores', s); }
+  alterarSetor(id: number, s: SetorInput) { return this.http.put<SetorCadastro>(`/api/setores/${id}`, s); }
   config() { return this.http.get<Config>('/api/config'); }
   salvarConfig(c: Config) { return this.http.put<Config>('/api/config', c); }
 
