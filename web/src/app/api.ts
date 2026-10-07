@@ -39,6 +39,7 @@ export interface ReservaInput {
   qtdParticipantes: number | null; disposicaoId: number | null; periodos: Periodo[]; recursos: ItemRecurso[];
 }
 export interface Erro { regra: string; mensagem: string; }
+export interface InterpretacaoReserva { reserva: ReservaInput; resumo: string; avisos: string[]; }
 export interface RecursoDaReserva {
   recursoId: number; descricao: string; iconeArquivo: string; limitado: boolean; quantidade: number | null; grupo: string;
 }
@@ -130,6 +131,12 @@ export class Api {
     return this.http.post<Erro[]>(`/api/reservas/validar${q}`, r);
   }
   criar(r: ReservaInput) { return this.http.post<{ id: number }>('/api/reservas', r); }
+  interpretacaoDisponivel() {
+    return this.http.get<{ disponivel: boolean }>('/api/reservas/interpretacao-disponivel');
+  }
+  interpretar(texto: string) {
+    return this.http.post<InterpretacaoReserva>('/api/reservas/interpretar', { texto });
+  }
   reserva(id: number) { return this.http.get<ReservaDetalhe>(`/api/reservas/${id}`); }
   alterar(id: number, r: ReservaInput) { return this.http.put<ReservaDetalhe>(`/api/reservas/${id}`, r); }
   cancelar(id: number) { return this.http.post<ReservaDetalhe>(`/api/reservas/${id}/cancelar`, {}); }

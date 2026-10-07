@@ -64,6 +64,45 @@
     <fieldset [disabled]="somenteLeitura() || salvando()">
       <legend class="visualmente-oculto">Dados da reserva</legend>
 
+      @if (iaDisponivel() && !somenteLeitura()) {
+        <section class="cartao assistente" aria-labelledby="sec-ia">
+          <h3 id="sec-ia" class="cartao-titulo"><app-icone nome="magica" [tamanho]="18" /> Descreva a reserva</h3>
+          <p class="ajuda topo">
+            Conte em poucas frases o que você precisa e o sistema preenche os campos abaixo para você conferir.
+            Nada é salvo automaticamente.
+          </p>
+          <div class="campos">
+            <div>
+              <label for="r-descricao">Descrição em linguagem natural <span class="opcional">(opcional)</span></label>
+              <textarea id="r-descricao" name="descricao" [(ngModel)]="descricao" rows="3"
+                        [disabled]="interpretando()" aria-describedby="ajuda-descricao"
+                        placeholder="Ex.: Reunião do GT de dados amanhã das 14h às 16h na sala de reuniões, 12 pessoas, com projetor e café."></textarea>
+              <span id="ajuda-descricao" class="ajuda">Ambientes, recursos e datas são associados aos cadastros existentes.</span>
+            </div>
+            <div class="assistente-acoes">
+              <button type="button" class="secundario" (click)="interpretar()" [disabled]="interpretando() || !descricao.trim()">
+                <app-icone nome="magica" /> {{ interpretando() ? 'Interpretando…' : 'Preencher automaticamente' }}
+              </button>
+            </div>
+          </div>
+          <div aria-live="polite">
+            @if (iaResumo()) {
+              <p class="assistente-resumo"><app-icone nome="ok" [tamanho]="16" /> <span>{{ iaResumo() }}</span></p>
+            }
+            @if (iaAvisos().length) {
+              <ul class="assistente-avisos">
+                @for (a of iaAvisos(); track $index) {
+                  <li><app-icone nome="alerta" [tamanho]="15" /> <span>{{ a }}</span></li>
+                }
+              </ul>
+            }
+            @if (iaErro()) {
+              <p class="erro-campo" role="alert"><app-icone nome="alerta" [tamanho]="15" /> <span>{{ iaErro() }}</span></p>
+            }
+          </div>
+        </section>
+      }
+
       <div class="colunas-form">
         <section class="cartao" aria-labelledby="sec-local">
           <h3 id="sec-local" class="cartao-titulo"><span class="passo" aria-hidden="true">1</span> Local</h3>

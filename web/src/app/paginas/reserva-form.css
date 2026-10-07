@@ -75,3 +75,13 @@
   .acoes button, .acoes .botao { flex: 1; }
   .espaco { display: none; }
 }
+
+/* ---------- Assistente (preenchimento por IA, F-IA) ---------- */
+.assistente { border-left: 4px solid var(--violeta); background: var(--violeta-50); }
+.assistente .cartao-titulo { color: var(--violeta); }
+.assistente-acoes { display: flex; }
+.assistente-resumo { display: flex; gap: 0.4rem; align-items: flex-start; margin: 0.6rem 0 0; color: var(--sucesso); font-size: 0.88rem; font-weight: 600; }
+.assistente-resumo app-icone { margin-top: 0.15rem; }
+.assistente-avisos { margin: 0.5rem 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.3rem; }
+.assistente-avisos li { display: flex; gap: 0.4rem; align-items: flex-start; color: var(--alerta); font-size: 0.84rem; }
+.assistente-avisos app-icone { margin-top: 0.15rem; }
