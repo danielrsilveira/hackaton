@@ -9,12 +9,14 @@ import java.util.Set;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 
+import br.mp.mpf.sisgares.dominio.AmbienteInfo;
+import br.mp.mpf.sisgares.dominio.DadosAmbiente;
 import br.mp.mpf.sisgares.dominio.DadosValidacao;
 import br.mp.mpf.sisgares.dominio.PeriodoOcupado;
 import br.mp.mpf.sisgares.dominio.RecursoInfo;
 
 @Component
-public class JdbcDadosValidacao implements DadosValidacao {
+public class JdbcDadosValidacao implements DadosValidacao, DadosAmbiente {
 
     private final JdbcClient jdbc;
 
@@ -27,11 +29,11 @@ public class JdbcDadosValidacao implements DadosValidacao {
         return new HashSet<>(jdbc.sql("""
                 with recursive anc as (
                     select id, id_pai from ambiente where id = :id
-                    union all
+                    union -- union (sem all) descarta linhas repetidas: termina mesmo se houver ciclo
                     select a.id, a.id_pai from ambiente a join anc on a.id = anc.id_pai
                 ), des as (
                     select id from ambiente where id = :id
-                    union all
+                    union
                     select a.id from ambiente a join des on a.id_pai = des.id
                 )
                 select id from anc union select id from des""")
@@ -80,5 +82,34 @@ public class JdbcDadosValidacao implements DadosValidacao {
                 .param("recu", recursoId).param("excluir", excluirReservaId == null ? -1L : excluirReservaId)
                 .param("ini", inicio).param("fim", termino)
                 .query(Integer.class).single();
+    }
+
+    @Override
+    public Optional<AmbienteInfo> ambiente(long ambienteId) {
+        return jdbc.sql("select id, descricao, id_pai, ativo, unidade_id from ambiente where id = :id")
+                .param("id", ambienteId).query(AmbienteInfo.class).optional();
+    }
+
+    @Override
+    public List<AmbienteInfo> ambientes(long unidadeId) {
+        return jdbc.sql("select id, descricao, id_pai, ativo, unidade_id from ambiente where unidade_id = :uni")
+                .param("uni", unidadeId).query(AmbienteInfo.class).list();
+    }
+
+    @Override
+    public List<PeriodoOcupado> periodosNaoTranscorridos(Set<Long> ambienteIds, LocalDateTime agora) {
+        if (ambienteIds.isEmpty()) {
+            return List.of();
+        }
+        return jdbc.sql("""
+                select p.rese_id as reserva_id, r.ambi_id as ambiente_id, a.descricao as ambiente_descricao,
+                       p.dthr_inicio as inicio, p.dthr_termino as termino
+                  from periodo_reserva p
+                  join reserva r on r.id = p.rese_id
+                  join ambiente a on a.id = r.ambi_id
+                 where not r.cancelada and r.ambi_id in (:ids) and p.dthr_termino > :agora
+                 order by p.dthr_inicio""")
+                .param("ids", ambienteIds).param("agora", agora)
+                .query(PeriodoOcupado.class).list();
     }
 }

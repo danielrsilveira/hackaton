@@ -8,6 +8,9 @@ import java.util.Set;
 /** Porta de leitura usada pelo validador. Implementada com JDBC e, nos testes, em memória. */
 public interface DadosValidacao {
 
+    /** Ambiente pelo id, ativo ou não, de qualquer unidade. */
+    Optional<AmbienteInfo> ambiente(long ambienteId);
+
     /** O próprio ambiente, seus ancestrais e seus descendentes (RN6). */
     Set<Long> ambientesRelacionados(long ambienteId);
 

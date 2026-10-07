@@ -3,7 +3,8 @@ import { FormsModule, NgForm } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
 import {
-  Ambiente, Api, Config, Disposicao, Erro, Recurso, ReservaDetalhe, ReservaInput, STATUS_ROTULO, Sessao, errosDaResposta,
+  Ambiente, Api, Config, Disposicao, Erro, InterpretacaoReserva, Recurso, ReservaDetalhe, ReservaInput,
+  STATUS_ROTULO, Sessao, errosDaResposta,
 } from '../api';
 import { dataHora, isoDataHora, minutos, paraData } from '../datas';
 import { Icone } from '../icone';
@@ -41,6 +42,11 @@ export class ReservaForm {
   protected readonly disposicoes = signal<Disposicao[]>([]);
   protected readonly recursos = signal<Recurso[]>([]);
   protected readonly detalhe = signal<ReservaDetalhe | null>(null);
+  /** Reserva antiga de um ambiente hoje inativo: mantém o nome visível no seletor. */
+  protected readonly ambienteInativo = computed(() => {
+    const d = this.detalhe();
+    return d?.ambienteId != null && this.ambientes().length > 0 && !this.ambientes().some((a) => a.id === d.ambienteId);
+  });
   protected readonly erros = signal<Erro[]>([]);
   /** Regras verificadas no backend (conflitos de agenda, disponibilidade de recursos). */
   protected readonly errosServidor = signal<Erro[]>([]);
@@ -57,6 +63,14 @@ export class ReservaForm {
   protected readonly validando = signal(false);
   /** Sequência das chamadas de prévia: só a resposta mais recente é aplicada (evita corrida). */
   private previaSeq = 0;
+
+  // Preenchimento assistido por IA (F-IA).
+  protected readonly iaDisponivel = signal(false);
+  protected readonly interpretando = signal(false);
+  protected readonly iaResumo = signal('');
+  protected readonly iaAvisos = signal<string[]>([]);
+  protected readonly iaErro = signal('');
+  protected descricao = '';
 
   // Modelo do formulário (mutado pelos eventos do template).
   protected ambienteId: number | null = null;
@@ -87,6 +101,11 @@ export class ReservaForm {
     this.api.config().subscribe((c) => {
       this.config.set(c);
       this.revalidarLocal();
+    });
+    // F-IA: descobre se o preenchimento assistido por IA está disponível.
+    this.api.interpretacaoDisponivel().subscribe({
+      next: (r) => this.iaDisponivel.set(r.disponivel),
+      error: () => this.iaDisponivel.set(false),
     });
     this.route.paramMap.subscribe((pm) => {
       const id = pm.get('id');
@@ -156,6 +175,62 @@ export class ReservaForm {
     }
     this.carregarRecursos();
     this.pronto.set(true);
+  }
+
+  /** F-IA: lê a descrição em linguagem natural e preenche os campos do formulário. */
+  protected interpretar(): void {
+    const texto = this.descricao.trim();
+    if (!texto || this.interpretando()) {
+      return;
+    }
+    this.interpretando.set(true);
+    this.iaErro.set('');
+    this.iaResumo.set('');
+    this.iaAvisos.set([]);
+    this.api.interpretar(texto).subscribe({
+      next: (r) => {
+        this.aplicarInterpretacao(r);
+        this.interpretando.set(false);
+      },
+      error: (e) => {
+        this.interpretando.set(false);
+        const erros = errosDaResposta(e);
+        this.iaErro.set(erros[0]?.mensagem ?? 'Não foi possível interpretar a descrição.');
+      },
+    });
+  }
+
+  private aplicarInterpretacao(r: InterpretacaoReserva): void {
+    const i = r.reserva;
+    this.ambienteId = i.ambienteId ?? null;
+    this.complemento = i.complementoAmbiente ?? '';
+    if (i.finalidade) {
+      this.finalidade = i.finalidade;
+    }
+    if (i.qtdParticipantes != null) {
+      this.participantes = i.qtdParticipantes;
+    }
+    this.disposicaoId = this.ambienteId == null ? null : i.disposicaoId ?? null;
+    if (i.periodos?.length) {
+      this.periodos = i.periodos.map((p) => ({
+        inicio: p.inicio ? p.inicio.substring(0, 16) : '',
+        termino: p.termino ? p.termino.substring(0, 16) : '',
+      }));
+    }
+    // Os recursos dependem do ambiente escolhido: recarrega a lista e então marca a seleção.
+    this.api.recursos(this.ambienteId).subscribe((rs) => {
+      this.recursos.set(rs);
+      this.selecao = {};
+      const ids = new Set(rs.map((x) => x.id));
+      for (const item of i.recursos ?? []) {
+        if (ids.has(item.recursoId)) {
+          this.selecao[item.recursoId] = { marcado: true, quantidade: item.quantidade ?? null };
+        }
+      }
+      this.iaResumo.set(r.resumo);
+      this.iaAvisos.set(r.avisos ?? []);
+      this.previa();
+    });
   }
 
   protected aoTrocarAmbiente(): void {

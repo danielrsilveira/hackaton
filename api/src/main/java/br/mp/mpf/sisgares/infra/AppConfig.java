@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import br.mp.mpf.sisgares.dominio.AmbienteValidator;
 import br.mp.mpf.sisgares.dominio.ReservaValidator;
 
 @Configuration
@@ -24,6 +25,11 @@ public class AppConfig implements WebMvcConfigurer {
     @Bean
     ReservaValidator reservaValidator(Clock clock) {
         return new ReservaValidator(clock);
+    }
+
+    @Bean
+    AmbienteValidator ambienteValidator(Clock clock) {
+        return new AmbienteValidator(clock);
     }
 
     @Override
