@@ -54,7 +54,7 @@
           <tr>
             <th scope="col" class="col-hora"><span class="visualmente-oculto">Horário</span></th>
             @for (d of datas(); track d.getTime()) {
-              <th scope="col" [class.hoje]="ehHoje(d)">
+              <th scope="col" [class.hoje]="ehHoje(d)" [class.fds]="ehFimDeSemana(d)">
                 <span class="dia-semana">{{ cabecalhoDia(d).split(' ')[0] }}</span>
                 <span class="dia-numero">{{ cabecalhoDia(d).split(' ')[1] }}</span>
                 @if (ehHoje(d)) { <span class="visualmente-oculto">(hoje)</span> }
@@ -67,7 +67,7 @@
             <tr>
               <th scope="row" class="col-hora">{{ l.hora }}</th>
               @for (c of l.celulas; track c.inicio) {
-                <td [class]="'cel ' + c.tipo + (c.item?.propria ? ' propria' : '') + (c.primeira ? ' primeira' : '') + (c.ultima ? ' ultima' : '')">
+                <td [class]="'cel ' + c.tipo + (c.item?.propria ? ' propria' : '') + (c.primeira ? ' primeira' : '') + (c.ultima ? ' ultima' : '') + (c.fds ? ' fds' : '')">
                   @switch (c.tipo) {
                     @case ('livre') {
                       <a class="slot" [routerLink]="['/reserva/nova']" [queryParams]="{ ambiente: ambienteId(), inicio: c.inicio }">

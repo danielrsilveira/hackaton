@@ -14,6 +14,7 @@ interface Celula {
   item?: ItemAgenda;
   primeira?: boolean;
   ultima?: boolean;
+  fds?: boolean;
 }
 
 const MARGEM_MS = 30 * 60 * 1000;
@@ -64,24 +65,25 @@ export class Painel {
         const ini = s.getTime();
         const fim = ini + SLOT_MS;
         const inicio = isoDataHora(s);
+        const fds = d.getDay() === 0 || d.getDay() === 6;
         const ocupado = periodos.find((x) => x.ini < fim && ini < x.fim);
         if (ocupado) {
           return {
-            tipo: 'reservado', inicio, item: ocupado.p,
+            tipo: 'reservado', inicio, item: ocupado.p, fds,
             primeira: ocupado.ini >= ini || m === minutos(ag.horaMin),
             ultima: ocupado.fim <= fim || m + 60 > minutos(ag.horaMax),
           };
         }
         if (periodos.some((x) => x.ini - MARGEM_MS < fim && ini < x.fim + MARGEM_MS)) {
-          return { tipo: 'margem', inicio };
+          return { tipo: 'margem', inicio, fds };
         }
         if (ini < agora) {
-          return { tipo: 'passado', inicio };
+          return { tipo: 'passado', inicio, fds };
         }
         if (ini < limite) {
-          return { tipo: 'antecedencia', inicio };
+          return { tipo: 'antecedencia', inicio, fds };
         }
-        return { tipo: 'livre', inicio };
+        return { tipo: 'livre', inicio, fds };
       });
       out.push({ hora: rotulo, celulas });
     }
@@ -138,6 +140,11 @@ export class Painel {
 
   protected ehHoje(d: Date): boolean {
     return isoData(d) === hoje();
+  }
+
+  protected ehFimDeSemana(d: Date): boolean {
+    const dia = d.getDay();
+    return dia === 0 || dia === 6;
   }
 
   protected descricaoCurta(c: Celula): string {
