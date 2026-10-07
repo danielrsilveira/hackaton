@@ -8,6 +8,7 @@ import {
 } from '../api';
 import { dataHora, isoDataHora, minutos, paraData } from '../datas';
 import { Icone } from '../icone';
+import { iconeUrl } from '../icones-recurso';
 
 interface PeriodoForm { inicio: string; termino: string; }
 interface Selecao { marcado: boolean; quantidade: number | null; }
@@ -27,6 +28,7 @@ const REGRAS_SERVIDOR = ['RN5', 'RN6', 'RN8', 'RN9'];
   styleUrl: './reserva-form.css',
 })
 export class ReservaForm {
+  protected readonly iconeUrl = iconeUrl;
   private readonly api = inject(Api);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);

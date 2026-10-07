@@ -75,7 +75,7 @@ public class RecursoValidator {
             erros.add(new Erro(REGRA, "O grupo \"%s\" está inativo.".formatted(grupo.descricao())));
         }
 
-        if (in.iconeArquivo() == null || !IconesRecurso.DISPONIVEIS.contains(in.iconeArquivo())) {
+        if (in.iconeArquivo() == null || !dados.icones().contains(in.iconeArquivo())) {
             erros.add(new Erro(REGRA, "Escolha um dos ícones disponíveis."));
         }
 

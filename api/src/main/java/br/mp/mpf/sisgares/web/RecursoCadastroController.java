@@ -1,8 +1,16 @@
 package br.mp.mpf.sisgares.web;
 
+import java.io.IOException;
+import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -13,8 +21,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import br.mp.mpf.sisgares.dominio.IconesRecurso;
+import br.mp.mpf.sisgares.dominio.IconeValidator;
 import br.mp.mpf.sisgares.dominio.RecursoInput;
+import br.mp.mpf.sisgares.dominio.RecursoValidator;
+import br.mp.mpf.sisgares.dominio.RegraException;
+import br.mp.mpf.sisgares.infra.Usuario;
 import br.mp.mpf.sisgares.dominio.VinculoSetorInput;
 import br.mp.mpf.sisgares.infra.CadastroRepository.VinculoSetor;
 import br.mp.mpf.sisgares.infra.RecursoRepository;
@@ -49,7 +60,36 @@ public class RecursoCadastroController {
     @GetMapping("/recursos/icones")
     public List<String> icones(@RequestHeader(value = UsuarioAtual.HEADER, required = false) Long uid) {
         usuarios.admin(uid);
-        return IconesRecurso.DISPONIVEIS;
+        return service.icones();
+    }
+
+    /** RF06: envia um novo ícone (multipart, campo {@code arquivo}); devolve {@code {"arquivo":"up-<id>"}}. */
+    @PostMapping(path = "/recursos/icones", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @ResponseStatus(HttpStatus.CREATED)
+    public Map<String, String> enviarIcone(@RequestParam("arquivo") MultipartFile arquivo,
+            @RequestHeader(value = UsuarioAtual.HEADER, required = false) Long uid) throws IOException {
+        Usuario u = usuarios.admin(uid);
+        if (arquivo.getSize() > IconeValidator.TAMANHO_MAXIMO) {
+            throw new RegraException(RecursoValidator.REGRA,
+                    "O ícone deve ter até %d KB.".formatted(IconeValidator.TAMANHO_MAXIMO / 1024));
+        }
+        return Map.of("arquivo", service.enviarIcone(arquivo.getBytes(), u.id()));
+    }
+
+    /**
+     * Imagem de um ícone enviado. Público, como os ícones estáticos em /img/recurso: aparece também
+     * para solicitantes e atendentes. O tipo vem do banco (detectado no envio) e o navegador não pode adivinhar outro.
+     */
+    @GetMapping("/icones-recurso/{arquivo}")
+    public ResponseEntity<byte[]> icone(@PathVariable String arquivo) {
+        return recursos.icone(arquivo)
+                .map(i -> ResponseEntity.ok()
+                        .contentType(MediaType.parseMediaType(i.tipo()))
+                        .header("X-Content-Type-Options", "nosniff")
+                        .header("Content-Security-Policy", "default-src 'none'")
+                        .cacheControl(CacheControl.maxAge(Duration.ofDays(30)).cachePublic().immutable())
+                        .body(i.conteudo()))
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @GetMapping("/grupos-recurso")

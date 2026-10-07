@@ -1,11 +1,13 @@
 package br.mp.mpf.sisgares.infra;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
+import br.mp.mpf.sisgares.dominio.IconesRecurso;
 import br.mp.mpf.sisgares.dominio.VinculoSetorInput;
 import br.mp.mpf.sisgares.infra.CadastroRepository.VinculoSetor;
 
@@ -75,6 +77,33 @@ public class RecursoRepository {
                 .param("d", descricao).param("g", grupoId).param("l", limitado).param("disp", disponibilidade)
                 .param("i", icone).param("uni", unidadeId).param("a", ativo).param("id", id)
                 .update();
+    }
+
+    /** Ícone enviado pelo administrador, como é servido ao navegador. */
+    public record IconeArquivo(String tipo, byte[] conteudo) {
+    }
+
+    /** Nomes dos ícones enviados, do mais antigo ao mais novo. */
+    public List<String> iconesEnviados() {
+        return jdbc.sql("select arquivo from icone_recurso order by id").query(String.class).list();
+    }
+
+    public Optional<IconeArquivo> icone(String arquivo) {
+        return jdbc.sql("select tipo, conteudo from icone_recurso where arquivo = :a").param("a", arquivo)
+                .query(IconeArquivo.class).optional();
+    }
+
+    /** Grava o ícone e devolve o nome gerado ({@code up-<id>}). */
+    public String inserirIcone(String tipo, byte[] conteudo, int largura, int altura, long usuarioId, LocalDateTime agora) {
+        long id = jdbc.sql("select nextval(pg_get_serial_sequence('icone_recurso', 'id'))").query(Long.class).single();
+        String arquivo = IconesRecurso.nomeEnviado(id);
+        jdbc.sql("""
+                insert into icone_recurso (id, arquivo, tipo, conteudo, largura, altura, dthr_criacao, criado_por)
+                values (:id, :a, :t, :c, :w, :h, :agora, :u)""")
+                .param("id", id).param("a", arquivo).param("t", tipo).param("c", conteudo)
+                .param("w", largura).param("h", altura).param("agora", agora).param("u", usuarioId)
+                .update();
+        return arquivo;
     }
 
     /** RF07: setores notificados quando o recurso é pedido. */

@@ -1,5 +1,8 @@
 package br.mp.mpf.sisgares.servico;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -11,6 +14,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 import br.mp.mpf.sisgares.dominio.DadosRecurso;
 import br.mp.mpf.sisgares.dominio.Erro;
+import br.mp.mpf.sisgares.dominio.IconeValidator;
+import br.mp.mpf.sisgares.dominio.IconesRecurso;
 import br.mp.mpf.sisgares.dominio.RecursoInput;
 import br.mp.mpf.sisgares.dominio.RecursoValidator;
 import br.mp.mpf.sisgares.dominio.RegraException;
@@ -36,9 +41,11 @@ public class RecursoService {
     private final RecursoValidator validator;
     private final TransactionTemplate tx;
     private final TravaEscrita trava;
+    private final Clock clock;
 
     public RecursoService(RecursoRepository recursos, CadastroRepository cadastros, DadosRecurso dados,
-            RecursoValidator validator, TransactionTemplate tx, TravaEscrita trava) {
+            RecursoValidator validator, TransactionTemplate tx, TravaEscrita trava, Clock clock) {
+        this.clock = clock;
         this.recursos = recursos;
         this.cadastros = cadastros;
         this.dados = dados;
@@ -108,6 +115,21 @@ public class RecursoService {
             recursos.substituirAmbientes(id, unidadeId, ambienteIds);
             return recursos.ambientes(id);
         }));
+    }
+
+    /** RF06: ícones que podem ser escolhidos, os do sistema primeiro. */
+    public List<String> icones() {
+        List<String> r = new ArrayList<>(IconesRecurso.DISPONIVEIS);
+        r.addAll(recursos.iconesEnviados());
+        return r;
+    }
+
+    /** RF06: novo ícone enviado pelo administrador; devolve o nome a usar em {@code iconeArquivo}. */
+    public String enviarIcone(byte[] conteudo, long usuarioId) {
+        IconeValidator.Resultado r = IconeValidator.validar(conteudo);
+        exigirSemErros(r.erros());
+        return recursos.inserirIcone(r.icone().tipo(), conteudo, r.icone().largura(), r.icone().altura(), usuarioId,
+                LocalDateTime.now(clock));
     }
 
     private RecursoCadastro existente(long id, long unidadeId) {

@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { Api, Card, STATUS_ROTULO, Sessao, Setor } from '../api';
 import { cabecalhoDia, datasConsecutivas, hoje, hora, isoData, paraData } from '../datas';
 import { Icone } from '../icone';
+import { iconeUrl } from '../icones-recurso';
 
 /** F8 / RF17: colunas de datas com um card por reserva que tenha período no dia. */
 @Component({
@@ -14,6 +15,7 @@ import { Icone } from '../icone';
   styleUrl: './atendimento.css',
 })
 export class Atendimento {
+  protected readonly iconeUrl = iconeUrl;
   private readonly api = inject(Api);
   private readonly sessao = inject(Sessao);
   protected readonly STATUS = STATUS_ROTULO;

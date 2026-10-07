@@ -17,6 +17,7 @@ import br.mp.mpf.sisgares.dominio.DadosAmbiente;
 import br.mp.mpf.sisgares.dominio.DadosRecurso;
 import br.mp.mpf.sisgares.dominio.DadosValidacao;
 import br.mp.mpf.sisgares.dominio.GrupoInfo;
+import br.mp.mpf.sisgares.dominio.IconesRecurso;
 import br.mp.mpf.sisgares.dominio.RecursoResumo;
 import br.mp.mpf.sisgares.dominio.UsoRecurso;
 import br.mp.mpf.sisgares.dominio.PeriodoOcupado;
@@ -115,6 +116,13 @@ public class JdbcDadosValidacao implements DadosValidacao, DadosAmbiente, DadosR
     public Map<Long, GrupoInfo> grupos() {
         return jdbc.sql("select id, descricao, ativo from grupo_recurso").query(GrupoInfo.class).list().stream()
                 .collect(Collectors.toMap(GrupoInfo::id, Function.identity()));
+    }
+
+    @Override
+    public Set<String> icones() {
+        Set<String> r = new HashSet<>(IconesRecurso.DISPONIVEIS);
+        r.addAll(jdbc.sql("select arquivo from icone_recurso").query(String.class).list());
+        return r;
     }
 
     @Override

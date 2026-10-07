@@ -641,6 +641,59 @@ class RegrasNegocioTest {
     }
 
     @Nested
+    @DisplayName("RF06 – envio de ícone de recurso")
+    class Rf06Icone {
+        static byte[] imagem(String formato, int w, int h) throws java.io.IOException {
+            var img = new java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_RGB);
+            var out = new java.io.ByteArrayOutputStream();
+            javax.imageio.ImageIO.write(img, formato, out);
+            return out.toByteArray();
+        }
+
+        @Test
+        void pngDe32PixelsEhAceito() throws Exception {
+            var r = IconeValidator.validar(imagem("png", 32, 32));
+            assertThat(r.valido()).isTrue();
+            assertThat(r.icone().tipo()).isEqualTo("image/png");
+        }
+
+        @Test
+        void jpegEhDetectadoPeloConteudo() throws Exception {
+            assertThat(IconeValidator.validar(imagem("jpg", 64, 48)).icone().tipo()).isEqualTo("image/jpeg");
+        }
+
+        @Test
+        void svgEhRecusado() {
+            byte[] svg = "<svg xmlns='http://www.w3.org/2000/svg'><script>alert(1)</script></svg>".getBytes();
+            assertThat(regras(IconeValidator.validar(svg).erros())).containsExactly("RF06");
+        }
+
+        @Test
+        void imagemMuitoPequenaOuGrandeEhRecusada() throws Exception {
+            assertThat(IconeValidator.validar(imagem("png", 8, 8)).valido()).isFalse();
+            assertThat(IconeValidator.validar(imagem("png", 600, 40)).valido()).isFalse();
+        }
+
+        @Test
+        void arquivoAcimaDe100KbEhRecusado() {
+            byte[] grande = new byte[IconeValidator.TAMANHO_MAXIMO + 1];
+            grande[0] = (byte) 0x89;
+            assertThat(IconeValidator.validar(grande).erros().getFirst().mensagem()).contains("100 KB");
+        }
+
+        @Test
+        void assinaturaDePngComConteudoInvalidoEhRecusada() {
+            byte[] falso = { (byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3 };
+            assertThat(IconeValidator.validar(falso).valido()).isFalse();
+        }
+
+        @Test
+        void arquivoVazioEhRecusado() {
+            assertThat(IconeValidator.validar(new byte[0]).valido()).isFalse();
+        }
+    }
+
+    @Nested
     @DisplayName("RF06/RF08 – cadastro de recursos e ambientes do recurso")
     class Rf06 {
         static final long EQUIPAMENTO = 2L;
@@ -770,6 +823,15 @@ class RegrasNegocioTest {
             var erros = rv.validarAmbientes(PROJETOR, List.of(SALA_1), UNIDADE, Set.of(), Set.of(), d);
             assertThat(regras(erros)).containsExactly("RN9");
             assertThat(erros.getFirst().mensagem()).contains("#100");
+        }
+
+        @Test
+        void iconeEnviadoPodeSerEscolhido() {
+            var in = new RecursoInput("Caixa de som", EQUIPAMENTO, false, null, "up-5", null, true);
+            assertThat(regras(salvar(null, in, base()))).containsExactly("RF06");
+            var d = base();
+            d.iconesEnviados.add("up-5");
+            assertThat(salvar(null, in, d)).isEmpty();
         }
 
         @Test

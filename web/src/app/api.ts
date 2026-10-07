@@ -127,6 +127,12 @@ export class Api {
   /** F9/RF06–RF08: cadastro de recursos e seus vínculos; somente administrador. */
   recursosCadastro() { return this.http.get<RecursoCadastro[]>('/api/recursos/cadastro'); }
   iconesRecurso() { return this.http.get<string[]>('/api/recursos/icones'); }
+  /** RF06: envia um novo ícone (PNG, JPEG ou GIF, até 100 KB); devolve o nome gerado. */
+  enviarIconeRecurso(arquivo: File) {
+    const form = new FormData();
+    form.append('arquivo', arquivo);
+    return this.http.post<{ arquivo: string }>('/api/recursos/icones', form);
+  }
   gruposRecurso() { return this.http.get<GrupoRecurso[]>('/api/grupos-recurso'); }
   criarRecurso(r: RecursoInput) { return this.http.post<RecursoCadastro>('/api/recursos', r); }
   alterarRecurso(id: number, r: RecursoInput) { return this.http.put<RecursoCadastro>(`/api/recursos/${id}`, r); }

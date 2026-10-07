@@ -58,7 +58,7 @@
           @if (x.card.recursos.length) {
             <ul class="recursos" aria-label="Recursos e serviços">
               @for (r of x.card.recursos; track r.recursoId) {
-                <li><img [src]="'/img/recurso/' + r.iconeArquivo" alt="" width="16" height="16" />
+                <li><img [src]="iconeUrl(r.iconeArquivo)" alt="" width="16" height="16" />
                   {{ r.descricao }}@if (r.limitado && r.quantidade) { <strong>×{{ r.quantidade }}</strong> }</li>
               }
             </ul>
