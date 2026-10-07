@@ -28,12 +28,15 @@ Regra de ouro: `docker compose up` (sem flags, sem `.env`) deve sempre subir o s
 - Spring Boot 4 usa Jackson 3 (pacote `tools.jackson`, não `com.fasterxml.jackson`) e starters modulares (ex.: `spring-boot-starter-webmvc`, `spring-boot-starter-flyway`).
 - Camadas: `dominio/` (regras puras, sem Spring), `infra/` (JdbcClient, seed, SNP, e-mail), `servico/`, `web/` (controllers).
   Acesso a dados com `JdbcClient` e SQL explícito (sem entidades JPA). Toda regra nova ganha teste em `RegrasNegocioTest`.
-- Usuário simulado pelo header `X-Usuario-Id` (resolvido por `UsuarioAtual`); checar perfil no backend, nunca só no front.
+- Autenticação por `app.auth.modo` (`AUTH_MODO`): `simulado` (padrão, header `X-Usuario-Id`, só com o profile `local`; a API não sobe de outro jeito) ou `cognito` (JWT do Cognito via Spring Security resource server; o header é ignorado por completo).
+  Controllers não leem header nem token: usam `UsuarioAtual.de()/gestor()/admin()`, que delega a `ResolvedorUsuario` (`infra/seguranca/`). No modo cognito o usuário é achado pelo claim `email` do ID token na tabela `usuario`, que é a fonte única de perfil (grupos do Cognito são informativos).
+  Checar perfil no backend, nunca só no front. Não logar tokens nem e-mails completos (usar `Mascara.email`). Variáveis: `AUTH_ISSUER_URI`, `AUTH_CLIENT_ID`; front: `COGNITO_DOMAIN`, `COGNITO_CLIENT_ID` (viram `/config.json` no start do container).
 - Schema somente via Flyway (`ddl-auto: validate`). Nome das migrations: `V<AAAAMMDDHHmm>__<descricao>.sql`
   (ex.: `V202610071530__cria_reserva.sql`). `V1__init.sql` é reservado ao modelo base. Nunca editar uma migration já mergeada.
 - E-mail e SNP são simulados atrás de interfaces (trocáveis por SES / API real depois).
 
 ## Frontend
+- Autenticação em `src/app/auth/` (PKCE à mão, sem biblioteca): tokens só em memória/`sessionStorage`, nunca `localStorage`; configuração de runtime em `/config.json`, nunca no build. No modo simulado o seletor de usuário continua.
 - Chamadas de API sempre relativas (`/api/...`); o proxy (`proxy.conf.js` no `npm start`, `nginx.conf` no container e, na AWS, o CloudFront) faz o roteamento.
 - Visual: usar os tokens de `src/styles.css` (`--primaria`, `--suave`, `--raio`, `.cartao`, `.cabecalho-pagina`, `.status`, botões
   `.secundario`/`.fantasma`/`.perigo`) e ícones via `<app-icone nome="..." />` (`src/app/icone.ts`). Não adicionar bibliotecas de UI nem fontes externas.
@@ -42,11 +45,11 @@ Regra de ouro: `docker compose up` (sem flags, sem `.env`) deve sempre subir o s
 
 ## Dados e segurança
 - Apenas dados fictícios (LGPD). Dados pessoais só são exibidos a quem precisa deles (dono da reserva, administrador, atendente).
-- Nunca versionar credenciais nem `.env`.
+- Nunca versionar credenciais nem `.env`. Senhas dos usuários de teste do Cognito nunca entram no repositório.
 
 ## AWS
 - Todo comando AWS CLI, SAM ou CloudFormation usa `--profile workshop` e a região `us-east-1`; código SDK usa o profile `workshop`.
-- O deploy será via CloudFormation (ainda não implementado). Não criar recursos na conta sem combinar com a equipe.
+- O deploy será via CloudFormation. Hoje só existe `infra/cognito.yaml` (autenticação); validar com `aws cloudformation validate-template`, sem implantar. Não criar recursos na conta sem combinar com a equipe.
 
 ## Git
 - Branch por feature (`feat/<area>-<descricao>`), PR para `main`, sem commits diretos na `main`.

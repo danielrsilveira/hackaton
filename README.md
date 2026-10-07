@@ -39,15 +39,94 @@ Abra **http://localhost:4200**.
 | SNP simulado | http://localhost:4200/mock-snp/pedidos/{numero} |
 | PostgreSQL | `localhost:5433` · banco/usuário `sisgares` · senha `sisgares_dev` (somente desenvolvimento local) |
 
-## Perfis de acesso (simulados)
+## Autenticação e perfis de acesso
 
-Não há login real. O usuário é escolhido no seletor do topo da tela:
+A API tem dois modos, definidos por `AUTH_MODO`:
+
+| Modo | Para quê | Como o usuário é identificado |
+|---|---|---|
+| `simulado` (padrão) | Demonstração e desenvolvimento local | Seletor de usuário no topo da tela, enviado no header `X-Usuario-Id`. **Sem autenticação real.** |
+| `cognito` | Produção na AWS | Login no Managed Login do Amazon Cognito (Authorization Code + PKCE). A API exige um JWT válido e **ignora por completo** o header `X-Usuario-Id`. |
+
+`docker compose up` sem flags e sem `.env` sobe no modo simulado e o roteiro de demonstração abaixo continua valendo.
+
+**Trava de segurança.** A API não sobe com `AUTH_MODO=simulado` se o profile `local` não estiver ativo (sem `SPRING_PROFILES_ACTIVE`, o padrão já é `local,seed`). Assim, um deploy na AWS esquecido no modo simulado falha na inicialização em vez de aceitar identidade forjada. No modo `cognito`, a API também recusa subir sem `AUTH_ISSUER_URI` e `AUTH_CLIENT_ID`, e exige issuer `https://` fora do profile `local`.
+
+### Variáveis
+
+| Variável | Onde | Descrição |
+|---|---|---|
+| `AUTH_MODO` | API e front (container `web`) | `simulado` (padrão) ou `cognito` |
+| `AUTH_ISSUER_URI` | API | Saída `IssuerUri` da stack, ex.: `https://cognito-idp.us-east-1.amazonaws.com/us-east-1_XXXXXXXXX`. O JWKS é lido de `<issuer>/.well-known/jwks.json` |
+| `AUTH_CLIENT_ID` | API e front | Saída `ClientId`. A API exige que o claim `aud` seja este client. No container `web` vira `COGNITO_CLIENT_ID` |
+| `COGNITO_DOMAIN` | Front | Saída `CognitoDomain`, ex.: `https://sisgares-xxxx.auth.us-east-1.amazoncognito.com` |
+| `COGNITO_REDIRECT_URI`, `COGNITO_LOGOUT_URI` | Front (opcionais) | Padrão: a origem do site (ex.: `http://localhost:4200`). Devem coincidir exatamente com `CallbackURLs` e `LogoutURLs` do app client |
+
+O front não tem configuração de autenticação no build: o container `web` gera `/config.json` ao iniciar, a partir dessas variáveis (`web/docker-entrypoint.d/40-config-json.sh`). Em `npm start`, vale o `web/public/config.json` (modo simulado).
+
+### Como o modo `cognito` funciona
+
+- **Token validado:** a API valida assinatura (RS256, JWKS do user pool), `iss`, `exp`, `aud` (= client id) e `token_use = id`. Access token é recusado.
+- **Por que o ID token e não o access token:** o usuário é achado pelo claim `email`, e o access token do Cognito não o traz (só `sub`, `username`, `cognito:groups`, `client_id`, `scope`). Incluí-lo exigiria o trigger Pre Token Generation V2/V3, que depende de plano pago. A API é o backend do próprio app client, então `aud` e `token_use` bastam para evitar uso indevido. Se a API passar a atender outros clients, migrar para access token e mapear por `sub`.
+- **Perfil vem do banco:** o e-mail verificado do token é procurado na tabela `usuario` (índice único, sem diferenciar maiúsculas). Perfil e unidade vêm só dela, para nunca divergir de `cognito:groups` (os grupos do Cognito são informativos). E-mail sem cadastro recebe 403 genérico; nenhum usuário é criado automaticamente.
+- **Respostas de erro** de autenticação são genéricas (401 com `WWW-Authenticate: Bearer`, sem dizer se o token expirou, é de outro pool etc.). Logs não registram tokens, e e-mails aparecem mascarados (`a***@exemplo.gov.br`).
+- **Rotas:** públicas `/api/ping`, `/actuator/health/**` e `/mock-snp/**` (simulador do SNP, que a própria API chama). Todo o resto exige token. `GET /api/me` devolve o usuário atual; `GET /api/usuarios` (lista para o seletor) só existe no modo simulado.
+- **Front:** login por Authorization Code + PKCE (com `state` e `nonce`) feito à mão com `fetch` e `crypto.subtle`, sem biblioteca e sem client secret. Os tokens ficam em memória e em `sessionStorage` (escopo da aba), nunca em `localStorage`. O ID token é renovado antes de expirar, com uma renovação por vez porque o refresh token é rotacionado. 401 volta ao login (com proteção contra laço), 403 mostra a mensagem de permissão e há botão **Sair** (revoga o refresh token e encerra a sessão do Managed Login).
+
+### Criar o user pool (CloudFormation)
+
+O template é [`infra/cognito.yaml`](infra/cognito.yaml): user pool com senha forte (12+ caracteres), MFA opcional por TOTP e sem auto cadastro, app client público (sem secret, Authorization Code + PKCE, escopos `openid email`, rotação e revogação de refresh token), domínio do Managed Login e os grupos SOLICITANTE, ADMIN e ATENDENTE. Não há credencial no repositório.
+
+Valide o template (não cria nada):
+
+```
+aws cloudformation validate-template --template-body file://infra/cognito.yaml --profile workshop --region us-east-1
+```
+
+Para criar a stack, **combine antes com a equipe** (ainda não foi feito). O parâmetro `AppUrls` recebe a origem pública do front (ex.: o CloudFront); `http://localhost:4200` já é incluído por padrão (`IncludeLocalhost=false` remove em produção):
+
+```
+aws cloudformation deploy --template-file infra/cognito.yaml --stack-name sisgares-auth --parameter-overrides AppUrls=https://SEU-CLOUDFRONT.cloudfront.net --profile workshop --region us-east-1
+aws cloudformation describe-stacks --stack-name sisgares-auth --query "Stacks[0].Outputs" --output table --profile workshop --region us-east-1
+```
+
+Os *Outputs* (`UserPoolId`, `IssuerUri`, `ClientId`, `CognitoDomain`) alimentam as variáveis da tabela acima. O pool tem `DeletionPolicy: Retain` e `DeletionProtection` ativos para não perder usuários; para remover a stack de vez, defina `DeletionProtection=INACTIVE`, apague a stack e depois o pool.
+
+### Criar os 5 usuários fictícios
+
+Os e-mails precisam ser iguais aos da tabela `usuario` (`@exemplo.gov.br` não recebe mensagens, por isso `SUPPRESS`). Troque `POOL_ID` pela saída `UserPoolId` e `SENHA_TEMPORARIA` por uma senha que atenda à política (12+ caracteres, maiúscula, minúscula, número e símbolo; evite `!`, `$`, `%`, `^`, `&` e aspas, que mudam de significado conforme o terminal). Cada pessoa troca a senha no primeiro login. Os comandos são de uma linha só e funcionam em PowerShell, cmd e bash:
+
+```
+aws cognito-idp admin-create-user --user-pool-id POOL_ID --username ana.souza@exemplo.gov.br --user-attributes Name=email,Value=ana.souza@exemplo.gov.br Name=email_verified,Value=true --message-action SUPPRESS --temporary-password SENHA_TEMPORARIA --profile workshop --region us-east-1
+aws cognito-idp admin-create-user --user-pool-id POOL_ID --username bruno.lima@exemplo.gov.br --user-attributes Name=email,Value=bruno.lima@exemplo.gov.br Name=email_verified,Value=true --message-action SUPPRESS --temporary-password SENHA_TEMPORARIA --profile workshop --region us-east-1
+aws cognito-idp admin-create-user --user-pool-id POOL_ID --username carla.mendes@exemplo.gov.br --user-attributes Name=email,Value=carla.mendes@exemplo.gov.br Name=email_verified,Value=true --message-action SUPPRESS --temporary-password SENHA_TEMPORARIA --profile workshop --region us-east-1
+aws cognito-idp admin-create-user --user-pool-id POOL_ID --username diego.rocha@exemplo.gov.br --user-attributes Name=email,Value=diego.rocha@exemplo.gov.br Name=email_verified,Value=true --message-action SUPPRESS --temporary-password SENHA_TEMPORARIA --profile workshop --region us-east-1
+aws cognito-idp admin-create-user --user-pool-id POOL_ID --username elisa.prado@exemplo.gov.br --user-attributes Name=email,Value=elisa.prado@exemplo.gov.br Name=email_verified,Value=true --message-action SUPPRESS --temporary-password SENHA_TEMPORARIA --profile workshop --region us-east-1
+```
+
+Opcional (os grupos são informativos; o perfil efetivo vem da tabela `usuario`):
+
+```
+aws cognito-idp admin-add-user-to-group --user-pool-id POOL_ID --username ana.souza@exemplo.gov.br --group-name SOLICITANTE --profile workshop --region us-east-1
+aws cognito-idp admin-add-user-to-group --user-pool-id POOL_ID --username bruno.lima@exemplo.gov.br --group-name SOLICITANTE --profile workshop --region us-east-1
+aws cognito-idp admin-add-user-to-group --user-pool-id POOL_ID --username carla.mendes@exemplo.gov.br --group-name ADMIN --profile workshop --region us-east-1
+aws cognito-idp admin-add-user-to-group --user-pool-id POOL_ID --username diego.rocha@exemplo.gov.br --group-name ATENDENTE --profile workshop --region us-east-1
+aws cognito-idp admin-add-user-to-group --user-pool-id POOL_ID --username elisa.prado@exemplo.gov.br --group-name ATENDENTE --profile workshop --region us-east-1
+```
+
+### Testar o login real localmente
+
+Com a stack criada, copie `.env.example` para `.env`, ative as quatro linhas de autenticação (`AUTH_MODO=cognito`, `AUTH_ISSUER_URI`, `AUTH_CLIENT_ID`, `COGNITO_DOMAIN`) com os *Outputs* e rode `docker compose up --build`. Abra http://localhost:4200: o sistema redireciona ao Managed Login. Para voltar à demonstração, apague essas linhas e use `docker compose up` de novo.
+
+### Perfis da demonstração (modo simulado)
 
 | Usuário | Perfil | O que pode fazer |
 |---|---|---|
 | Ana Souza, Bruno Lima | Solicitante | Painel de horários; incluir, alterar e cancelar as próprias reservas |
 | Carla Mendes | Administrador | Tudo, incluindo configurações e alteração de qualquer reserva |
 | Diego Rocha (SEART), Elisa Prado (SMSG) | Atendente | Painel do atendente e notificações do próprio setor |
+
+Os mesmos cinco usuários e perfis valem no modo `cognito` (o perfil sai da tabela `usuario`).
 
 ## Funcionalidades
 
@@ -147,7 +226,9 @@ api/                 Spring Boot (Maven Wrapper)
   src/test/java                     testes das regras
 web/                 Angular (standalone, signals, zoneless)
   src/app/paginas                   telas
+  src/app/auth                      login Cognito (PKCE), renovação de token, interceptor
   nginx.conf                        servidor do front + proxy /api
+infra/               CloudFormation (infra/cognito.yaml: autenticação)
 docs/                Caso de uso, especificação, dados e imagens fornecidos
 assets/screenshots/  Capturas usadas neste README
 docker-compose.yml   db + api + web (e web-dev opcional)
@@ -195,7 +276,7 @@ As convenções da equipe (migrations, padrão de erros, acessibilidade, Git, AW
 
 ## Limitações e próximos passos
 
-- **Sem autenticação real:** o usuário vem do header `X-Usuario-Id`. Para produção, integrar com OIDC/Cognito.
+- **Autenticação em produção:** o modo `cognito` está implementado e testado com emissor falso, mas a stack `infra/cognito.yaml` ainda não foi implantada na conta. Falta validar o fluxo contra o Cognito real, criar os usuários e definir o `AppUrls` do CloudFront. Também ficam para depois: cabeçalho `Content-Security-Policy` no CloudFront/nginx e proteção WAF no Managed Login. O modo `simulado` é só para desenvolvimento local e a API recusa subir com ele fora do profile `local`.
 - **F9 parcial:** ambientes e seus setores notificados (com código SNP) têm cadastro. Setores, disposições, grupos, recursos e os vínculos de recursos (setor × recurso, recurso × ambiente) ainda vêm só da carga inicial.
 - **Reservas geradas:** não há CSV de reservas. Finalidade e solicitante foram gerados com dados fictícios, e a carga não passa pelo validador, o que pode deixar conflitos históricos.
 - **RN8:** soma as quantidades de qualquer reserva que cruze o período, sem calcular o pico dentro do intervalo.

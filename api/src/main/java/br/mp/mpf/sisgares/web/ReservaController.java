@@ -15,7 +15,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -59,36 +58,31 @@ public class ReservaController {
     // ---- Reserva (F1–F4) ----
 
     @PostMapping("/reservas/validar")
-    public List<Erro> validar(@RequestBody ReservaInput in, @RequestParam(required = false) Long reservaId,
-            @RequestHeader(value = UsuarioAtual.HEADER, required = false) Long uid) {
-        return service.validarPrevia(in, reservaId, usuarios.de(uid));
+    public List<Erro> validar(@RequestBody ReservaInput in, @RequestParam(required = false) Long reservaId) {
+        return service.validarPrevia(in, reservaId, usuarios.de());
     }
 
     @PostMapping("/reservas")
     @ResponseStatus(HttpStatus.CREATED)
-    public Map<String, Long> criar(@RequestBody ReservaInput in,
-            @RequestHeader(value = UsuarioAtual.HEADER, required = false) Long uid) {
-        return Map.of("id", service.criar(in, usuarios.de(uid)));
+    public Map<String, Long> criar(@RequestBody ReservaInput in) {
+        return Map.of("id", service.criar(in, usuarios.de()));
     }
 
     @GetMapping("/reservas/{id}")
-    public ReservaDetalhe detalhe(@PathVariable long id,
-            @RequestHeader(value = UsuarioAtual.HEADER, required = false) Long uid) {
-        return service.detalhe(id, usuarios.de(uid));
+    public ReservaDetalhe detalhe(@PathVariable long id) {
+        return service.detalhe(id, usuarios.de());
     }
 
     @PutMapping("/reservas/{id}")
-    public ReservaDetalhe alterar(@PathVariable long id, @RequestBody ReservaInput in,
-            @RequestHeader(value = UsuarioAtual.HEADER, required = false) Long uid) {
-        Usuario u = usuarios.de(uid);
+    public ReservaDetalhe alterar(@PathVariable long id, @RequestBody ReservaInput in) {
+        Usuario u = usuarios.de();
         service.alterar(id, in, u);
         return service.detalhe(id, u);
     }
 
     @PostMapping("/reservas/{id}/cancelar")
-    public ReservaDetalhe cancelar(@PathVariable long id,
-            @RequestHeader(value = UsuarioAtual.HEADER, required = false) Long uid) {
-        Usuario u = usuarios.de(uid);
+    public ReservaDetalhe cancelar(@PathVariable long id) {
+        Usuario u = usuarios.de();
         service.cancelar(id, u);
         return service.detalhe(id, u);
     }
@@ -99,8 +93,8 @@ public class ReservaController {
 
     /** Acompanhamento das reservas do próprio solicitante. */
     @GetMapping("/reservas/minhas")
-    public List<MinhaReserva> minhas(@RequestHeader(value = UsuarioAtual.HEADER, required = false) Long uid) {
-        Usuario u = usuarios.de(uid);
+    public List<MinhaReserva> minhas() {
+        Usuario u = usuarios.de();
         LocalDateTime agora = LocalDateTime.now(clock);
         List<MinhaReserva> out = new ArrayList<>();
         for (long id : repo.idsDoSolicitante(u.id())) {
@@ -124,9 +118,8 @@ public class ReservaController {
 
     /** Períodos do ambiente e de seus pais/filhos. Finalidade só para o dono ou gestor (LGPD). */
     @GetMapping("/agenda")
-    public Agenda agenda(@RequestParam long ambienteId, @RequestParam LocalDate inicio, @RequestParam int dias,
-            @RequestHeader(value = UsuarioAtual.HEADER, required = false) Long uid) {
-        Usuario u = usuarios.de(uid);
+    public Agenda agenda(@RequestParam long ambienteId, @RequestParam LocalDate inicio, @RequestParam int dias) {
+        Usuario u = usuarios.de();
         var cfg = cadastros.regras(u.unidadeId());
         int n = Math.clamp(dias, 1, 31);
         List<Long> ids = new ArrayList<>(dados.ambientesRelacionados(ambienteId));
@@ -148,9 +141,8 @@ public class ReservaController {
 
     @GetMapping("/painel-atendente")
     public List<Card> painelAtendente(@RequestParam LocalDate inicio, @RequestParam int dias,
-            @RequestParam(required = false) Long setorId,
-            @RequestHeader(value = UsuarioAtual.HEADER, required = false) Long uid) {
-        Usuario u = usuarios.gestor(uid);
+            @RequestParam(required = false) Long setorId) {
+        Usuario u = usuarios.gestor();
         LocalDateTime agora = LocalDateTime.now(clock);
         int n = Math.clamp(dias, 1, 31);
         List<Card> cards = new ArrayList<>();
@@ -168,15 +160,14 @@ public class ReservaController {
 
     /** Administrador vê todas; atendente vê só as do próprio setor. */
     @GetMapping("/notificacoes")
-    public List<Notificacao> notificacoes(@RequestParam(required = false) Long reservaId,
-            @RequestHeader(value = UsuarioAtual.HEADER, required = false) Long uid) {
-        Usuario u = usuarios.gestor(uid);
+    public List<Notificacao> notificacoes(@RequestParam(required = false) Long reservaId) {
+        Usuario u = usuarios.gestor();
         return repo.notificacoes(reservaId, u.admin() ? null : u.envolvidoId());
     }
 
     @GetMapping("/pedidos-snp")
-    public List<PedidoSnp> pedidos(@RequestHeader(value = UsuarioAtual.HEADER, required = false) Long uid) {
-        usuarios.gestor(uid);
+    public List<PedidoSnp> pedidos() {
+        usuarios.gestor();
         return repo.pedidos(null);
     }
 }

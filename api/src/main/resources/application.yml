@@ -5,6 +5,9 @@ server:
 spring:
   application:
     name: sisgares-api
+  autoconfigure:
+    # Sem login por formulário/basic: evita o usuário padrão com senha aleatória no log (modo simulado).
+    exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
   profiles:
     # Sem SPRING_PROFILES_ACTIVE (dev nativo) => local + seed. Na AWS, definir explicitamente.
     default: local,seed
@@ -23,6 +26,13 @@ spring:
   jackson:
     time-zone: America/Fortaleza
 app:
+  auth:
+    # simulado (padrão): usuário pelo header X-Usuario-Id, SOMENTE com o profile "local" (a API não sobe sem ele).
+    # cognito: exige JWT (ID token) do user pool; o header é ignorado. Exige AUTH_ISSUER_URI e AUTH_CLIENT_ID.
+    modo: ${AUTH_MODO:simulado}
+    # Ex.: https://cognito-idp.us-east-1.amazonaws.com/us-east-1_XXXXXXXXX (saída IssuerUri de infra/cognito.yaml)
+    issuer-uri: ${AUTH_ISSUER_URI:}
+    client-id: ${AUTH_CLIENT_ID:}
   snp:
     endpoint: ${SNP_ENDPOINT:http://localhost:8080/mock-snp/pedidos}
   cors:

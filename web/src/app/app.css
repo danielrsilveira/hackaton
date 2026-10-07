@@ -43,6 +43,11 @@ nav a:focus-visible { box-shadow: 0 0 0 3px #f2a900; }
 }
 .perfil-campo { min-width: 0; }
 .perfil-campo label { font-size: 0.7rem; color: var(--suave); margin: 0 0 0.1rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.perfil-rotulo { display: block; font-size: 0.7rem; color: var(--suave); margin: 0 0 0.1rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.perfil-nome { display: block; font-weight: 600; color: var(--tinta); overflow-wrap: anywhere; }
+.acesso { max-width: 36rem; margin: 2rem auto; }
+.acesso h2 { font-size: 1.3rem; margin-bottom: 0.5rem; }
+.acesso-acoes { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1rem; }
 .perfil-campo select { min-height: 2.1rem; padding: 0.25rem 2rem 0.25rem 0.6rem; font-weight: 600; width: 19rem; max-width: 100%; }
 
 main { padding: 1.75rem; width: 100%; max-width: 1440px; margin: 0 auto; }

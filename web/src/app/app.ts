@@ -4,6 +4,7 @@ import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } fro
 import { filter } from 'rxjs';
 
 import { Api, Sessao, Usuario } from './api';
+import { Autenticacao } from './auth/autenticacao';
 import { Icone } from './icone';
 
 interface ItemMenu { rota: string; rotulo: string; icone: string; quando: 'todos' | 'gestor' | 'admin'; }
@@ -30,13 +31,14 @@ const PERFIL_ROTULO: Record<string, string> = { SOLICITANTE: 'Solicitante', ADMI
 export class App {
   private readonly api = inject(Api);
   protected readonly sessao = inject(Sessao);
+  protected readonly auth = inject(Autenticacao);
   protected readonly usuarios = signal<Usuario[]>([]);
   protected readonly menuAberto = signal(false);
   protected readonly perfilRotulo = PERFIL_ROTULO;
   private readonly main = viewChild.required<ElementRef<HTMLElement>>('principal');
 
   protected readonly menu = computed(() =>
-    MENU.filter((m) => m.quando === 'todos' || (m.quando === 'gestor' && this.sessao.gestor()) || (m.quando === 'admin' && this.sessao.admin())),
+    this.auth.acessoNegado() ? [] : MENU.filter((m) => m.quando === 'todos' || (m.quando === 'gestor' && this.sessao.gestor()) || (m.quando === 'admin' && this.sessao.admin())),
   );
 
   protected readonly iniciais = computed(() => {
@@ -45,10 +47,26 @@ export class App {
   });
 
   constructor() {
-    this.api.usuarios().subscribe((us) => {
-      this.usuarios.set(us);
-      this.sessao.usuario.set(us.find((u) => u.id === this.sessao.usuarioId()) ?? us[0] ?? null);
-    });
+    if (!this.auth.ativo()) {
+      // Modo simulado: seletor de perfil da demonstração.
+      this.api.usuarios().subscribe((us) => {
+        this.usuarios.set(us);
+        this.sessao.usuario.set(us.find((u) => u.id === this.sessao.usuarioId()) ?? us[0] ?? null);
+      });
+    } else if (!this.auth.erro()) {
+      // Modo cognito: o perfil vem do banco, pelo e-mail do token (GET /api/me).
+      this.api.me().subscribe({
+        next: (u) => this.sessao.usuario.set(u),
+        error: (e) => {
+          if (e?.status === 403) {
+            this.auth.acessoNegado.set(true);
+          } else if (e?.status !== 401) {
+            // 401 já foi tratado pelo interceptor (volta ao login ou mostra o erro de acesso).
+            this.auth.erro.set('Não foi possível carregar o seu perfil. Tente novamente.');
+          }
+        },
+      });
+    }
     inject(Router).events.pipe(filter((e) => e instanceof NavigationEnd)).subscribe(() => this.menuAberto.set(false));
   }
 
@@ -56,6 +74,15 @@ export class App {
     this.sessao.trocar(Number(id));
     // Recarrega para que cada tela busque os dados com o novo perfil.
     window.location.reload();
+  }
+
+  protected entrarDeNovo(): void {
+    this.auth.erro.set(null);
+    void this.auth.entrar();
+  }
+
+  protected sair(): void {
+    void this.auth.sair();
   }
 
   protected pularParaConteudo(ev: Event): void {

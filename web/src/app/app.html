@@ -26,7 +26,11 @@
       </ul>
     </nav>
 
-    <p class="nota">Demonstração · dados fictícios (LGPD) · sem autenticação real</p>
+    @if (auth.ativo()) {
+      <p class="nota">Dados fictícios (LGPD) · acesso autenticado</p>
+    } @else {
+      <p class="nota">Demonstração · dados fictícios (LGPD) · sem autenticação real</p>
+    }
   </aside>
 
   @if (menuAberto()) {
@@ -43,19 +47,52 @@
 
       <div class="perfil">
         <span class="avatar" aria-hidden="true">{{ iniciais() }}</span>
-        <div class="perfil-campo">
-          <label for="usuario-atual">Usuário (simulado)</label>
-          <select id="usuario-atual" [ngModel]="sessao.usuarioId()" (ngModelChange)="trocarUsuario($event)">
-            @for (u of usuarios(); track u.id) {
-              <option [ngValue]="u.id">{{ nomeCurto(u) }} · {{ perfilRotulo[u.perfil] }}</option>
+        @if (auth.ativo()) {
+          <div class="perfil-campo">
+            <span class="perfil-rotulo">Usuário</span>
+            @if (sessao.usuario(); as u) {
+              <span class="perfil-nome">{{ nomeCurto(u) }} · {{ perfilRotulo[u.perfil] }}</span>
+            } @else {
+              <span class="perfil-nome">Carregando…</span>
             }
-          </select>
-        </div>
+          </div>
+          <button type="button" class="secundario" (click)="sair()"><app-icone nome="sair" /> Sair</button>
+        } @else {
+          <div class="perfil-campo">
+            <label for="usuario-atual">Usuário (simulado)</label>
+            <select id="usuario-atual" [ngModel]="sessao.usuarioId()" (ngModelChange)="trocarUsuario($event)">
+              @for (u of usuarios(); track u.id) {
+                <option [ngValue]="u.id">{{ nomeCurto(u) }} · {{ perfilRotulo[u.perfil] }}</option>
+              }
+            </select>
+          </div>
+        }
       </div>
     </header>
 
     <main id="conteudo" tabindex="-1" #principal>
-      <router-outlet />
+      @if (auth.ativo() && auth.erro(); as mensagem) {
+        <section class="cartao acesso" role="alert" aria-labelledby="acesso-titulo">
+          <h2 id="acesso-titulo">Não foi possível entrar</h2>
+          <p>{{ mensagem }}</p>
+          <div class="acesso-acoes">
+            <button type="button" (click)="entrarDeNovo()"><app-icone nome="ok" /> Entrar novamente</button>
+            <button type="button" class="secundario" (click)="sair()"><app-icone nome="sair" /> Sair</button>
+          </div>
+        </section>
+      } @else if (auth.ativo() && auth.acessoNegado()) {
+        <section class="cartao acesso" role="alert" aria-labelledby="acesso-titulo">
+          <h2 id="acesso-titulo">Acesso não autorizado</h2>
+          <p>Seu login foi reconhecido, mas você não tem acesso ao SISGARES. Procure o administrador do sistema.</p>
+          <div class="acesso-acoes">
+            <button type="button" class="secundario" (click)="sair()"><app-icone nome="sair" /> Sair</button>
+          </div>
+        </section>
+      } @else if (!auth.ativo() || sessao.usuario()) {
+        <router-outlet />
+      } @else {
+        <p role="status">Carregando…</p>
+      }
     </main>
   </div>
 </div>

@@ -1,4 +1,4 @@
-import { HttpClient, HttpInterceptorFn } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 
 // ---- Modelos (espelham os records da API) ----
@@ -68,7 +68,9 @@ export const STATUS_ROTULO: Record<Status, string> = {
   CANCELADA: 'Cancelada',
 };
 
-// ---- Sessão simulada (sem autenticação real) ----
+// ---- Sessão: usuário atual e perfil ----
+// `usuarioId` só vale no modo simulado (seletor de perfil; guarda um id fictício, não é credencial).
+// No modo cognito o usuário vem de GET /api/me e a identidade vai no Bearer (ver auth/interceptor.ts).
 
 const CHAVE_USUARIO = 'sisgares.usuarioId';
 
@@ -85,18 +87,15 @@ export class Sessao {
   }
 }
 
-/** Envia o usuário simulado em todas as chamadas à API. */
-export const usuarioInterceptor: HttpInterceptorFn = (req, next) => {
-  const sessao = inject(Sessao);
-  return next(req.clone({ setHeaders: { 'X-Usuario-Id': String(sessao.usuarioId()) } }));
-};
-
 // ---- Cliente HTTP (rotas relativas: proxy local / CloudFront na AWS) ----
 
 @Injectable({ providedIn: 'root' })
 export class Api {
   private readonly http = inject(HttpClient);
 
+  /** Usuário autenticado (modo cognito). */
+  me() { return this.http.get<Usuario>('/api/me'); }
+  /** Lista de usuários fictícios do seletor; existe só no modo simulado. */
   usuarios() { return this.http.get<Usuario[]>('/api/usuarios'); }
   ambientes() { return this.http.get<Ambiente[]>('/api/ambientes'); }
   /** F9: inclui inativos; somente administrador. */

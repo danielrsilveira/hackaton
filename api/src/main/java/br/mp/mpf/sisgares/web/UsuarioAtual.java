@@ -4,39 +4,37 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 
-import br.mp.mpf.sisgares.infra.CadastroRepository;
 import br.mp.mpf.sisgares.infra.Usuario;
+import br.mp.mpf.sisgares.infra.seguranca.ResolvedorUsuario;
 
 /**
- * Resolve o usuário pelo header X-Usuario-Id, escolhido no seletor de perfil do front.
- * SEM AUTENTICAÇÃO: aceitável só na demonstração. Em produção, trocar por OIDC/Cognito.
+ * Usuário da requisição corrente e checagem de perfil (sempre no backend, nunca só no front).
+ * De onde vem a identidade depende de {@code app.auth.modo}: header X-Usuario-Id (simulado, só em
+ * desenvolvimento local) ou JWT do Cognito (cognito). Os controllers não conhecem a diferença.
  */
 @Component
 public class UsuarioAtual {
 
-    public static final String HEADER = "X-Usuario-Id";
+    private final ResolvedorUsuario resolvedor;
 
-    private final CadastroRepository cadastros;
-
-    public UsuarioAtual(CadastroRepository cadastros) {
-        this.cadastros = cadastros;
+    public UsuarioAtual(ResolvedorUsuario resolvedor) {
+        this.resolvedor = resolvedor;
     }
 
-    public Usuario de(Long id) {
-        return cadastros.usuario(id == null ? 1L : id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuário desconhecido."));
+    public Usuario de() {
+        return resolvedor.resolver();
     }
 
-    public Usuario gestor(Long id) {
-        Usuario u = de(id);
+    public Usuario gestor() {
+        Usuario u = de();
         if (!u.gestor()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Restrito a administrador e atendente.");
         }
         return u;
     }
 
-    public Usuario admin(Long id) {
-        Usuario u = de(id);
+    public Usuario admin() {
+        Usuario u = de();
         if (!u.admin()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Restrito ao administrador.");
         }

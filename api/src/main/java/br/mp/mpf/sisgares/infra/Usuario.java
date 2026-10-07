@@ -1,6 +1,6 @@
 package br.mp.mpf.sisgares.infra;
 
-/** Usuário fictício (sem autenticação real na demonstração). */
+/** Usuário do sistema (linha da tabela usuario; dados fictícios). Perfil e unidade vêm sempre do banco. */
 public record Usuario(long id, String nome, String email, String perfil, long unidadeId, Long envolvidoId) {
 
     public boolean admin() {

@@ -8,7 +8,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -42,49 +41,38 @@ public class CadastroController {
         this.ambientes = ambientes;
     }
 
-    /** Lista de usuários fictícios para o seletor de perfil da demonstração. */
-    @GetMapping("/usuarios")
-    public List<Usuario> usuarios() {
-        return cadastros.usuarios();
-    }
-
     /** Ambientes ativos da unidade. Com {@code todos=true} (só administrador), inclui os inativos. */
     @GetMapping("/ambientes")
-    public List<Ambiente> ambientes(@RequestParam(defaultValue = "false") boolean todos,
-            @RequestHeader(value = UsuarioAtual.HEADER, required = false) Long uid) {
+    public List<Ambiente> ambientes(@RequestParam(defaultValue = "false") boolean todos) {
         if (todos) {
-            return cadastros.ambientesTodos(usuarios.admin(uid).unidadeId());
+            return cadastros.ambientesTodos(usuarios.admin().unidadeId());
         }
-        return cadastros.ambientes(usuarios.de(uid).unidadeId());
+        return cadastros.ambientes(usuarios.de().unidadeId());
     }
 
     /** F9/RF02: somente administrador. */
     @PostMapping("/ambientes")
     @ResponseStatus(HttpStatus.CREATED)
-    public Ambiente criarAmbiente(@RequestBody AmbienteInput in,
-            @RequestHeader(value = UsuarioAtual.HEADER, required = false) Long uid) {
-        return ambientes.criar(usuarios.admin(uid).unidadeId(), in);
+    public Ambiente criarAmbiente(@RequestBody AmbienteInput in) {
+        return ambientes.criar(usuarios.admin().unidadeId(), in);
     }
 
     /** F9/RF02: somente administrador. Inativar = enviar {@code ativo: false}. */
     @PutMapping("/ambientes/{id}")
-    public Ambiente alterarAmbiente(@PathVariable long id, @RequestBody AmbienteInput in,
-            @RequestHeader(value = UsuarioAtual.HEADER, required = false) Long uid) {
-        return ambientes.alterar(id, usuarios.admin(uid).unidadeId(), in);
+    public Ambiente alterarAmbiente(@PathVariable long id, @RequestBody AmbienteInput in) {
+        return ambientes.alterar(id, usuarios.admin().unidadeId(), in);
     }
 
     /** RF03: setores notificados nas reservas do ambiente (somente administrador). */
     @GetMapping("/ambientes/{id}/setores")
-    public List<VinculoSetor> setoresDoAmbiente(@PathVariable long id,
-            @RequestHeader(value = UsuarioAtual.HEADER, required = false) Long uid) {
-        return ambientes.setores(id, usuarios.admin(uid).unidadeId());
+    public List<VinculoSetor> setoresDoAmbiente(@PathVariable long id) {
+        return ambientes.setores(id, usuarios.admin().unidadeId());
     }
 
     /** RF03: substitui a lista completa de setores vinculados (somente administrador). */
     @PutMapping("/ambientes/{id}/setores")
-    public List<VinculoSetor> salvarSetoresDoAmbiente(@PathVariable long id, @RequestBody List<VinculoSetorInput> vinculos,
-            @RequestHeader(value = UsuarioAtual.HEADER, required = false) Long uid) {
-        return ambientes.salvarSetores(id, usuarios.admin(uid).unidadeId(), vinculos);
+    public List<VinculoSetor> salvarSetoresDoAmbiente(@PathVariable long id, @RequestBody List<VinculoSetorInput> vinculos) {
+        return ambientes.salvarSetores(id, usuarios.admin().unidadeId(), vinculos);
     }
 
     @GetMapping("/disposicoes")
@@ -94,9 +82,8 @@ public class CadastroController {
 
     /** RN9: só os recursos que podem ser pedidos para o ambiente informado. */
     @GetMapping("/recursos")
-    public List<Recurso> recursos(@RequestParam(required = false) Long ambienteId,
-            @RequestHeader(value = UsuarioAtual.HEADER, required = false) Long uid) {
-        return cadastros.recursosDisponiveis(ambienteId, usuarios.de(uid).unidadeId());
+    public List<Recurso> recursos(@RequestParam(required = false) Long ambienteId) {
+        return cadastros.recursosDisponiveis(ambienteId, usuarios.de().unidadeId());
     }
 
     @GetMapping("/setores")
@@ -105,15 +92,14 @@ public class CadastroController {
     }
 
     @GetMapping("/config")
-    public Config config(@RequestHeader(value = UsuarioAtual.HEADER, required = false) Long uid) {
-        return cadastros.config(usuarios.de(uid).unidadeId());
+    public Config config() {
+        return cadastros.config(usuarios.de().unidadeId());
     }
 
     /** F10/RF09: somente administrador. */
     @PutMapping("/config")
-    public Config salvarConfig(@RequestBody Config c,
-            @RequestHeader(value = UsuarioAtual.HEADER, required = false) Long uid) {
-        Usuario u = usuarios.admin(uid);
+    public Config salvarConfig(@RequestBody Config c) {
+        Usuario u = usuarios.admin();
         if (c.antecedenciaMin() < 0 || c.horaMin() == null || c.horaMax() == null || !c.horaMax().isAfter(c.horaMin())) {
             throw new RegraException("RN3", "Informe antecedência ≥ 0 e uma faixa global válida (máximo após o mínimo).");
         }

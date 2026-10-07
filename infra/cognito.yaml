@@ -1,0 +1,254 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  SISGARES authentication - Cognito user pool with Managed Login and a public SPA app client (Authorization Code
+  + PKCE, no secret); admin-created users only, because the API maps the token e-mail to the usuario table.
+
+Metadata:
+  AWSToolsMetrics:
+    AWSAgentToolkit: aws-cloudformation@3
+  com.aws.cloudformation.Context:
+    arch: SPA -> Managed Login (code+PKCE) -> ID token -> API validates iss/aud/exp/token_use=id via JWKS
+    must:
+      - app client stays public (no secret); SPA can't protect one
+      - no self sign-up; users come from admin-create-user with the same e-mails as the usuario table
+      - no IAM roles / identity pool; groups are informational, API reads the profile from the database
+    ref:
+      - at: README.md
+        has: auth modes, API and web variables, user creation commands
+        scope: project
+    owner: SISGARES team
+
+Parameters:
+  AppUrls:
+    Type: CommaDelimitedList
+    Default: ''
+    Description: >-
+      Public origins of the web app (CloudFront, no trailing slash), comma-separated. Used as callback and logout
+      URLs. Must match the origin the browser uses exactly. Leave empty for local-only testing.
+  IncludeLocalhost:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: Also allow LocalhostUrl as callback/logout URL. Use 'false' for a production-only pool.
+  LocalhostUrl:
+    Type: String
+    Default: http://localhost:4200
+    AllowedPattern: '^http://(localhost|127\.0\.0\.1)(:[0-9]{1,5})?$'
+    ConstraintDescription: Must be http://localhost[:port] or http://127.0.0.1[:port].
+    Description: Origin of the local web app (docker compose up).
+  DomainPrefix:
+    Type: String
+    Default: ''
+    AllowedPattern: '^$|^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'
+    ConstraintDescription: Lowercase letters, digits and hyphens; must not contain the words aws, amazon or cognito.
+    Description: >-
+      Managed Login domain prefix (regional, must be unique). Empty = "sisgares-" plus the stack GUID, so the
+      account id never shows in the public URL.
+  MfaConfiguration:
+    Type: String
+    Default: OPTIONAL
+    AllowedValues: [OPTIONAL, 'ON']
+    Description: OPTIONAL lets each user enroll an authenticator app (TOTP); ON requires it for everyone.
+  IdTokenMinutes:
+    Type: Number
+    Default: 15
+    MinValue: 5
+    MaxValue: 60
+    Description: >-
+      ID and access token lifetime in minutes. The API validates tokens locally, so a revoked user keeps access
+      until this expires; the web app renews silently with the refresh token.
+  RefreshTokenHours:
+    Type: Number
+    Default: 8
+    MinValue: 1
+    MaxValue: 720
+    Description: Refresh token lifetime in hours (one work day by default). Rotation is enabled.
+  DeletionProtection:
+    Type: String
+    Default: ACTIVE
+    AllowedValues: [ACTIVE, INACTIVE]
+    Description: >-
+      ACTIVE blocks deletion of the user pool (it holds the users). Set INACTIVE first when you really want to
+      remove the stack and the pool.
+
+Conditions:
+  HasAppUrls: !Not [!Equals [!Join ['', !Ref AppUrls], '']]
+  UseLocalhost: !Equals [!Ref IncludeLocalhost, 'true']
+  HasDomainPrefix: !Not [!Equals [!Ref DomainPrefix, '']]
+
+Resources:
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: >-
+          directory of SISGARES users; e-mail as username (case-insensitive) = key to the usuario table;
+          ESSENTIALS needed for Managed Login v2; TOTP only, no SMS (cost, weaker)
+        must:
+          - UsernameAttributes can't change after creation (replacement); keep e-mail
+          - AllowAdminCreateUserOnly=true; self sign-up would let anyone get a valid token
+          - keep Retain; replacement or deletion would wipe all users
+        mutable: change-with-constraints
+        mutability:
+          UsernameAttributes: must-never-change
+          UserPoolName: free-to-tune
+    Properties:
+      UserPoolName: !Sub '${AWS::StackName}-usuarios'
+      UserPoolTier: ESSENTIALS
+      DeletionProtection: !Ref DeletionProtection
+      UsernameAttributes: [email]
+      UsernameConfiguration:
+        CaseSensitive: false
+      AutoVerifiedAttributes: [email]
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 12
+          RequireLowercase: true
+          RequireUppercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+          TemporaryPasswordValidityDays: 7
+      MfaConfiguration: !Ref MfaConfiguration
+      EnabledMfas: [SOFTWARE_TOKEN_MFA]
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+      UserAttributeUpdateSettings:
+        AttributesRequireVerificationBeforeUpdate: [email]
+      EmailConfiguration:
+        EmailSendingAccount: COGNITO_DEFAULT
+      UserPoolTags:
+        Projeto: SISGARES
+
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: Managed Login v2 on a Cognito prefix domain (no ACM cert / DNS needed for the hackathon); custom domain later
+        must:
+          - ManagedLoginVersion 2 needs a branding style per app client (UserPoolBranding below)
+          - changing Domain replaces the resource and changes the login URL; update COGNITO_DOMAIN in the web container
+    Properties:
+      UserPoolId: !Ref UserPool
+      Domain: !If
+        - HasDomainPrefix
+        - !Ref DomainPrefix
+        - !Sub
+          - 'sisgares-${StackGuid}'
+          - StackGuid: !Select [2, !Split ['/', !Ref 'AWS::StackId']]
+      ManagedLoginVersion: 2
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: >-
+          public SPA client: code grant + PKCE only, scopes openid+email (the API needs the e-mail claim; no
+          aws.cognito.signin.user.admin, so users can't edit their own attributes); SRP only, so no
+          ALLOW_REFRESH_TOKEN_AUTH (incompatible with rotation; the SPA refreshes at the token endpoint)
+        must:
+          - GenerateSecret=false (replacement if flipped); a browser can't keep a secret
+          - AllowedOAuthFlows only code; never implicit (tokens in the URL)
+          - callback/logout URLs must equal the browser origin exactly (scheme, host, port, no trailing slash)
+          - the client id is the "aud" the API requires (AUTH_CLIENT_ID); a new client means a new id there
+          - EnableTokenRevocation and rotation on; the SPA calls /oauth2/revoke on sign out
+        mutable: change-with-constraints
+        mutability:
+          GenerateSecret: must-never-change
+          CallbackURLs: free-to-tune
+          LogoutURLs: free-to-tune
+    Properties:
+      ClientName: !Sub '${AWS::StackName}-web'
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthFlows: [code]
+      AllowedOAuthScopes: [openid, email]
+      SupportedIdentityProviders: [COGNITO]
+      CallbackURLs: !If
+        - HasAppUrls
+        - !If
+          - UseLocalhost
+          - !Split [',', !Join [',', [!Join [',', !Ref AppUrls], !Ref LocalhostUrl]]]
+          - !Ref AppUrls
+        - !If
+          - UseLocalhost
+          - [!Ref LocalhostUrl]
+          - !Ref 'AWS::NoValue'
+      LogoutURLs: !If
+        - HasAppUrls
+        - !If
+          - UseLocalhost
+          - !Split [',', !Join [',', [!Join [',', !Ref AppUrls], !Ref LocalhostUrl]]]
+          - !Ref AppUrls
+        - !If
+          - UseLocalhost
+          - [!Ref LocalhostUrl]
+          - !Ref 'AWS::NoValue'
+      ExplicitAuthFlows: [ALLOW_USER_SRP_AUTH]
+      PreventUserExistenceErrors: ENABLED
+      EnableTokenRevocation: true
+      RefreshTokenRotation:
+        Feature: ENABLED
+        RetryGracePeriodSeconds: 10
+      IdTokenValidity: !Ref IdTokenMinutes
+      AccessTokenValidity: !Ref IdTokenMinutes
+      RefreshTokenValidity: !Ref RefreshTokenHours
+      TokenValidityUnits:
+        IdToken: minutes
+        AccessToken: minutes
+        RefreshToken: hours
+
+  UserPoolBranding:
+    Type: AWS::Cognito::ManagedLoginBranding
+    DependsOn: UserPoolDomain
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: Managed Login v2 shows no login page for a client without a style; Cognito-provided defaults, customize later
+    Properties:
+      UserPoolId: !Ref UserPool
+      ClientId: !Ref UserPoolClient
+      UseCognitoProvidedValues: true
+
+  GroupAdmin:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      UserPoolId: !Ref UserPool
+      GroupName: ADMIN
+      Description: Administrador. Informativo; o perfil efetivo vem da tabela usuario.
+      Precedence: 1
+
+  GroupAtendente:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      UserPoolId: !Ref UserPool
+      GroupName: ATENDENTE
+      Description: Atendente. Informativo; o perfil efetivo vem da tabela usuario.
+      Precedence: 2
+
+  GroupSolicitante:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      UserPoolId: !Ref UserPool
+      GroupName: SOLICITANTE
+      Description: Solicitante. Informativo; o perfil efetivo vem da tabela usuario.
+      Precedence: 3
+
+Outputs:
+  UserPoolId:
+    Description: User pool id (used in admin-create-user commands).
+    Value: !Ref UserPool
+  IssuerUri:
+    Description: API variable AUTH_ISSUER_URI (the "iss" claim; JWKS is read from <issuer>/.well-known/jwks.json).
+    Value: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}'
+  ClientId:
+    Description: API variable AUTH_CLIENT_ID and web variable COGNITO_CLIENT_ID (public client, not a secret).
+    Value: !Ref UserPoolClient
+  CognitoDomain:
+    Description: Web variable COGNITO_DOMAIN (Managed Login base URL).
+    Value: !Sub 'https://${UserPoolDomain}.auth.${AWS::Region}.amazoncognito.com'

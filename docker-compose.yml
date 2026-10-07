@@ -45,6 +45,10 @@ services:
       SNP_ENDPOINT: http://localhost:8080/mock-snp/pedidos
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local,seed}
       CORS_ORIGINS: http://localhost:${WEB_PORT:-4200},http://localhost:4201
+      # Autenticação: sem .env o modo é "simulado" (só funciona com o profile local). Ver README.
+      AUTH_MODO: ${AUTH_MODO:-simulado}
+      AUTH_ISSUER_URI: ${AUTH_ISSUER_URI:-}
+      AUTH_CLIENT_ID: ${AUTH_CLIENT_ID:-}
     ports:
       - "${API_PORT:-8080}:8080"
     depends_on:
@@ -56,6 +60,11 @@ services:
     image: sisgares-web:local
     pull_policy: build
     restart: unless-stopped
+    environment:
+      # Viram /config.json no start do container (nada disso é fixado no build).
+      AUTH_MODO: ${AUTH_MODO:-simulado}
+      COGNITO_DOMAIN: ${COGNITO_DOMAIN:-}
+      COGNITO_CLIENT_ID: ${AUTH_CLIENT_ID:-}
     ports:
       - "${WEB_PORT:-4200}:80"
     depends_on:

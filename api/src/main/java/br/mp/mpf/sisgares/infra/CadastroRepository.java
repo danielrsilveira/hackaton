@@ -49,6 +49,12 @@ public class CadastroRepository {
                 .param("id", id).query(Usuario.class).optional();
     }
 
+    /** Mapeamento do login (claim email do Cognito) para o usuário; único pelo índice ux_usuario_email. */
+    public Optional<Usuario> usuarioPorEmail(String email) {
+        return jdbc.sql("select id, nome, email, perfil, unidade_id, envolvido_id from usuario where lower(email) = lower(:email)")
+                .param("email", email.strip()).query(Usuario.class).optional();
+    }
+
     public List<Usuario> usuarios() {
         return jdbc.sql("select id, nome, email, perfil, unidade_id, envolvido_id from usuario order by id")
                 .query(Usuario.class).list();
