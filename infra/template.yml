@@ -15,6 +15,15 @@ Parameters:
     Default: pl-3b927c52
     Description: >
       Prefix list "com.amazonaws.global.cloudfront.origin-facing" (us-east-1). O ALB so aceita trafego do CloudFront.
+  AuthIssuerUri:
+    Type: String
+    AllowedPattern: "^https://.+"
+    ConstraintDescription: Saida IssuerUri da stack sisgares-auth (infra/cognito.yaml), com https://.
+    Description: Issuer do user pool do Cognito (AUTH_ISSUER_URI da API).
+  AuthClientId:
+    Type: String
+    AllowedPattern: "^[a-z0-9]+$"
+    Description: Id do app client publico do Cognito (AUTH_CLIENT_ID da API; vira o "aud" exigido nos tokens).
   ApiImageTag:
     Type: String
     Default: latest
@@ -215,8 +224,12 @@ Resources:
             - { Name: DB_PORT, Value: "5432" }
             - { Name: DB_NAME, Value: sisgares }
             - { Name: DB_USER, Value: sisgares }
-            # Mesmo comportamento do docker compose: dados de demonstracao e SNP/e-mail simulados.
-            - { Name: SPRING_PROFILES_ACTIVE, Value: "local,seed" }
+            # Dados de demonstracao e SNP/e-mail simulados. SEM o profile "local" de proposito: a API so sobe
+            # em modo Cognito (AUTH_MODO=simulado e recusado fora do profile local) e exige issuer https.
+            - { Name: SPRING_PROFILES_ACTIVE, Value: "seed" }
+            - { Name: AUTH_MODO, Value: cognito }
+            - { Name: AUTH_ISSUER_URI, Value: !Ref AuthIssuerUri }
+            - { Name: AUTH_CLIENT_ID, Value: !Ref AuthClientId }
             - { Name: SNP_ENDPOINT, Value: "http://localhost:8080/mock-snp/pedidos" }
             - { Name: BEDROCK_ENABLED, Value: "true" }
             - { Name: BEDROCK_REGION, Value: !Ref AWS::Region }
