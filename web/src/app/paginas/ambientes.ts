@@ -1,19 +1,17 @@
 import { Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Ambiente, Api, Erro, Sessao, Setor, VinculoSetor, errosDaResposta } from '../api';
+import { Ambiente, Api, Erro, Sessao, errosDaResposta } from '../api';
 import { arvoreAmbientes, descendentes } from '../arvore-ambientes';
 import { Icone } from '../icone';
-
-/** Linha editável do vínculo setor × ambiente (RF03). */
-interface LinhaSetor { chave: number; setorId: number | null; codServicoSnp: string; inativo: boolean; nomeInativo: string; }
+import { SetoresVinculados } from '../setores-vinculados';
 
 /**
- * F9 / RF02: cadastro de ambientes com hierarquia (somente administrador).
+ * F9 / RF02: cadastro de ambientes com hierarquia e setores notificados (RF03), somente administrador.
  * Não há exclusão: o ambiente é inativado (reservas e vínculos continuam apontando para ele).
  */
 @Component({
   selector: 'app-ambientes',
-  imports: [FormsModule, Icone],
+  imports: [FormsModule, Icone, SetoresVinculados],
   template: `
     <div class="cabecalho-pagina">
       <div>
@@ -102,53 +100,8 @@ interface LinhaSetor { chave: number; setorId: number | null; codServicoSnp: str
           </form>
         </section>
 
-        @if (editandoId() != null) {
-          <section class="cartao formulario setores" aria-labelledby="t-setores">
-            <h3 id="t-setores" class="cartao-titulo" tabindex="-1"><app-icone nome="email" /> Setores notificados</h3>
-            <p class="ajuda topo">
-              Cada setor recebe e-mail das reservas de {{ nomeDe(editandoId()) }} (RN10). Com código de serviço, também é
-              aberto um pedido no SNP (RN11). Vale a partir de agora: reservas já gravadas avisam os novos setores
-              quando forem alteradas ou canceladas.
-            </p>
-            @if (errosSetores().length) {
-              <div class="erros" role="alert"><app-icone nome="alerta" [tamanho]="20" />
-                <ul>@for (e of errosSetores(); track $index) { <li>{{ e.mensagem }}</li> }</ul></div>
-            }
-            @if (okSetores()) { <p class="sucesso" role="status"><app-icone nome="ok" [tamanho]="20" /> Setores salvos.</p> }
-            @if (carregandoSetores()) {
-              <p role="status">Carregando setores…</p>
-            } @else {
-              <form (ngSubmit)="salvarSetores()">
-                @if (!linhas.length) { <p>Nenhum setor vinculado: as reservas deste ambiente não geram e-mail por ele.</p> }
-                @for (l of linhas; track l.chave; let i = $index) {
-                  <fieldset class="linha-setor">
-                    <legend class="visualmente-oculto">Setor {{ i + 1 }}</legend>
-                    <div class="campo-setor">
-                      <label [for]="'s-setor-' + l.chave">Setor</label>
-                      <select [id]="'s-setor-' + l.chave" [name]="'setor-' + l.chave" [(ngModel)]="l.setorId" required>
-                        <option [ngValue]="null" disabled>Escolha o setor</option>
-                        @if (l.inativo) { <option [ngValue]="l.setorId">{{ l.nomeInativo }} (inativo)</option> }
-                        @for (s of setores(); track s.id) {
-                          <option [ngValue]="s.id" [disabled]="usadoEmOutraLinha(s.id, i)">{{ s.descricao }}</option>
-                        }
-                      </select>
-                    </div>
-                    <div>
-                      <label [for]="'s-cod-' + l.chave">Código de serviço SNP <span class="obrigatorio">(opcional)</span></label>
-                      <input [id]="'s-cod-' + l.chave" [name]="'cod-' + l.chave" [(ngModel)]="l.codServicoSnp" maxlength="50"
-                             placeholder="ex.: SEG-0401" autocomplete="off" />
-                    </div>
-                    <button type="button" class="perigo icone" (click)="removerLinha(i)"
-                            [attr.aria-label]="'Remover setor ' + (i + 1)"><app-icone nome="lixeira" /></button>
-                  </fieldset>
-                }
-                <div class="acoes">
-                  <button type="button" class="secundario" (click)="adicionarLinha()"><app-icone nome="mais" /> Adicionar setor</button>
-                  <button type="submit" [disabled]="salvandoSetores()"><app-icone nome="ok" /> Salvar setores</button>
-                </div>
-              </form>
-            }
-          </section>
+        @if (editandoId(); as id) {
+          <app-setores-vinculados alvo="ambiente" [alvoId]="id" [nome]="nomeDe(id)" />
         }
         </div>
       </div>
@@ -167,11 +120,6 @@ interface LinhaSetor { chave: number; setorId: number | null; codServicoSnp: str
     .campo-ativo { margin-top: 0.5rem; }
     .obrigatorio { font-weight: 400; color: var(--suave); }
     .acoes { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem; }
-    .ajuda.topo { margin: -0.5rem 0 1rem; }
-    .linha-setor { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.5rem; align-items: end;
-      padding-bottom: 0.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid var(--linha); }
-    .linha-setor input, .linha-setor select { margin-bottom: 0; }
-    .linha-setor .campo-setor { grid-column: 1 / -1; }
     @media (max-width: 860px) {
       .grade { grid-template-columns: 1fr; }
       .coluna { order: -1; }
@@ -194,15 +142,6 @@ export class Ambientes {
   protected idPai: number | null = null;
   protected ativo = true;
 
-  // RF03: setores notificados do ambiente em edição
-  protected readonly setores = signal<Setor[]>([]);
-  protected readonly carregandoSetores = signal(false);
-  protected readonly salvandoSetores = signal(false);
-  protected readonly errosSetores = signal<Erro[]>([]);
-  protected readonly okSetores = signal(false);
-  protected linhas: LinhaSetor[] = [];
-  private proximaChave = 0;
-
   protected readonly arvore = computed(() => arvoreAmbientes(this.ambientes()));
 
   /** Pai possível: ativo (ou o pai atual), nunca o próprio ambiente nem um descendente. */
@@ -215,71 +154,6 @@ export class Ambientes {
 
   constructor() {
     this.carregar();
-    this.api.setores().subscribe((s) => this.setores.set(s));
-  }
-
-  private carregarSetores(ambienteId: number): void {
-    this.carregandoSetores.set(true);
-    this.errosSetores.set([]);
-    this.okSetores.set(false);
-    this.api.setoresDoAmbiente(ambienteId).subscribe({
-      next: (vs) => {
-        this.linhas = vs.map((v) => this.linha(v));
-        this.carregandoSetores.set(false);
-      },
-      error: (e) => {
-        this.errosSetores.set(errosDaResposta(e));
-        this.carregandoSetores.set(false);
-      },
-    });
-  }
-
-  private linha(v?: VinculoSetor): LinhaSetor {
-    return {
-      chave: this.proximaChave++,
-      setorId: v?.setorId ?? null,
-      codServicoSnp: v?.codServicoSnp ?? '',
-      inativo: v != null && !v.setorAtivo,
-      nomeInativo: v?.setor ?? '',
-    };
-  }
-
-  protected usadoEmOutraLinha(setorId: number, indice: number): boolean {
-    return this.linhas.some((l, i) => i !== indice && l.setorId === setorId);
-  }
-
-  protected adicionarLinha(): void {
-    this.linhas = [...this.linhas, this.linha()];
-    this.okSetores.set(false);
-    const chave = this.linhas[this.linhas.length - 1].chave;
-    setTimeout(() => document.getElementById(`s-setor-${chave}`)?.focus());
-  }
-
-  protected removerLinha(indice: number): void {
-    this.linhas = this.linhas.filter((_, i) => i !== indice);
-    this.okSetores.set(false);
-    // Mantém o foco no cartão para quem navega por teclado.
-    setTimeout(() => document.getElementById('t-setores')?.focus());
-  }
-
-  protected salvarSetores(): void {
-    const id = this.editandoId();
-    if (id == null) return;
-    this.errosSetores.set([]);
-    this.okSetores.set(false);
-    this.salvandoSetores.set(true);
-    const dados = this.linhas.map((l) => ({ setorId: l.setorId, codServicoSnp: l.codServicoSnp.trim() || null }));
-    this.api.salvarSetoresDoAmbiente(id, dados).subscribe({
-      next: (vs) => {
-        this.linhas = vs.map((v) => this.linha(v));
-        this.salvandoSetores.set(false);
-        this.okSetores.set(true);
-      },
-      error: (e) => {
-        this.salvandoSetores.set(false);
-        this.errosSetores.set(errosDaResposta(e));
-      },
-    });
   }
 
   private carregar(): void {
@@ -320,7 +194,6 @@ export class Ambientes {
     this.ativo = a.ativo;
     this.erros.set([]);
     this.ok.set('');
-    this.carregarSetores(a.id);
     this.focarDescricao();
   }
 
@@ -338,12 +211,6 @@ export class Ambientes {
       next: (a) => {
         this.salvando.set(false);
         this.ambientes.update((as) => [...as.filter((x) => x.id !== a.id), a]);
-        if (id == null) {
-          // Ambiente recém-criado: libera o cartão de setores, ainda vazio.
-          this.linhas = [];
-          this.errosSetores.set([]);
-          this.okSetores.set(false);
-        }
         this.editandoId.set(a.id);
         this.ok.set(id == null ? `Ambiente "${a.descricao}" criado.` : `Ambiente "${a.descricao}" salvo.`);
       },
